@@ -108,7 +108,8 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res* AppendEntriesRespons
 	return nil
 }
 
-func (n *Node) broadcastHeartbeat() {
+// broadCastAppendEntries sends an append entries request to all peers
+func (n *Node) broadCastAppendEntries() {
 	req := AppendEntriesRequest{
 		Term:     n.CurrentTerm,
 		LeaderID: n.ID,
