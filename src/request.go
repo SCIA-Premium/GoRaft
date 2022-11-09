@@ -13,8 +13,8 @@ type LogEntry struct {
 	Command string
 }
 
-// HeartbeatRequest is the request sent to append entries to the log
-type HeartbeatRequest struct {
+// AppendEntriesRequest is the request sent to append entries to the log
+type AppendEntriesRequest struct {
 	Term         int
 	LeaderID     uuid.UUID
 	PrevLogIndex int
@@ -23,8 +23,8 @@ type HeartbeatRequest struct {
 	LeaderCommit int
 }
 
-// HeartbeatResponse is the response sent after appending entries to the log
-type HeartbeatResponse struct {
+// AppendEntriesResponse is the response sent after appending entries to the log
+type AppendEntriesResponse struct {
 	Term    int
 	Success bool
 }
@@ -85,8 +85,8 @@ func (n *Node) broadcastRequestVotes() {
 	}
 }
 
-// Heartbeat is the RPC method to append entries to the log
-func (n *Node) Heartbeat(req HeartbeatRequest, res* HeartbeatResponse) error {
+// AppendEntries is the RPC method to append entries to the log
+func (n *Node) AppendEntries(req AppendEntriesRequest, res* AppendEntriesResponse) error {
 
 	if req.Term < n.CurrentTerm {
 		res.Term = n.CurrentTerm
@@ -94,7 +94,7 @@ func (n *Node) Heartbeat(req HeartbeatRequest, res* HeartbeatResponse) error {
 		return nil
 	}
 
-	n.Channels.HeartbeatRequest <- req
+	n.Channels.AppendEntriesRequest <- req
 	if len(req.Entries) == 0 {
 		res.Term = n.CurrentTerm
 		res.Success = true
@@ -108,9 +108,8 @@ func (n *Node) Heartbeat(req HeartbeatRequest, res* HeartbeatResponse) error {
 	return nil
 }
 
-// broadcastHeartbeat sends a heartbeat to all peers
 func (n *Node) broadcastHeartbeat() {
-	req := HeartbeatRequest{
+	req := AppendEntriesRequest{
 		Term:     n.CurrentTerm,
 		LeaderID: n.ID,
 	}
@@ -122,13 +121,13 @@ func (n *Node) broadcastHeartbeat() {
 				return
 			}
 
-			var res HeartbeatResponse
-			err = client.Call("Node.Heartbeat", req, &res)
+			var res AppendEntriesResponse
+			err = client.Call("Node.AppendEntries", req, &res)
 			if err != nil {
 				log.Println(err)
 				return
 			}
-			n.Channels.HeartbeatResponse <- res
+			n.Channels.AppendEntriesResponse <- res
 		}(peer)
 	}
 }

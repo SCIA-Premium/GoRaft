@@ -36,16 +36,16 @@ func NewPeer(address string) *Peer {
 
 // NodeChannels is a struct that contains all channels used by a node
 type NodeChannels struct {
-	HeartbeatRequest  chan HeartbeatRequest
-	HeartbeatResponse chan HeartbeatResponse
+	AppendEntriesRequest chan AppendEntriesRequest 
+	AppendEntriesResponse chan AppendEntriesResponse 
 	VoteResponse chan VoteResponse
 }
 
 // NewNodeChannels creates a new NodeChannels
 func NewNodeChannels() NodeChannels {
 	return NodeChannels{
-		HeartbeatRequest:  make(chan HeartbeatRequest),
-		HeartbeatResponse: make(chan HeartbeatResponse),
+		AppendEntriesRequest: make(chan AppendEntriesRequest),
+		AppendEntriesResponse: make(chan AppendEntriesResponse),
 		VoteResponse:      make(chan VoteResponse),
 	}
 }
@@ -61,6 +61,7 @@ type Node struct {
 	State       NodeState
 	Peers       map[int]*Peer
 	Channels    NodeChannels
+	Log         []LogEntry
 }
 
 // NewNode creates a new node
@@ -81,8 +82,10 @@ func NewNode(peer_ID int, peers map[int]*Peer) *Node {
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	select {
-	case <-n.Channels.HeartbeatRequest:
-		log.Printf("Node %d [%s]: received heartbeat\n", n.Peer_ID, n.State)
+	case req := <-n.Channels.AppendEntriesRequest:
+		if len(req.Entries) == 0 {
+			log.Printf("Node %d [%s]: received heartbeat\n", n.Peer_ID, n.State)
+		}
 	case <-time.After(time.Duration(rand.Intn(200)+300) * time.Millisecond):
 		log.Printf("Node %d [%s]: timeout -> change State to Candidate\n", n.Peer_ID, n.State)
 		n.State = Candidate
@@ -121,8 +124,8 @@ func (n *Node) stepCandidate() {
 // StepLeader is the state of a node that is the leader
 func (n *Node) stepLeader() {
 	select {
-	case heartbeatResponse := <-n.Channels.HeartbeatResponse:
-		if heartbeatResponse.Success {
+	case res := <-n.Channels.AppendEntriesResponse:
+		if res.Success {
 			// TODO
 		} else {
 			// TODO
