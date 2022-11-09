@@ -46,7 +46,7 @@ func NewNodeChannels() NodeChannels {
 	return NodeChannels{
 		HeartbeatRequest:  make(chan HeartbeatRequest),
 		HeartbeatResponse: make(chan HeartbeatResponse),
-		VoteResponse:      make(chan VoteResponse, 3),
+		VoteResponse:      make(chan VoteResponse),
 	}
 }
 
