@@ -131,7 +131,7 @@ func (n *Node) stepLeader() {
 			// TODO
 		}
 	default:
-		n.broadcastHeartbeat()
+		n.broadcastAppendEntries()
 		time.Sleep(100 * time.Millisecond)
 	}
 }

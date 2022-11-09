@@ -109,7 +109,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res* AppendEntriesRespons
 }
 
 // broadCastAppendEntries sends an append entries request to all peers
-func (n *Node) broadCastAppendEntries() {
+func (n *Node) broadcastAppendEntries() {
 	req := AppendEntriesRequest{
 		Term:     n.CurrentTerm,
 		LeaderID: n.ID,
