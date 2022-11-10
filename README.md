@@ -10,8 +10,10 @@
 `go get github.com/mattn/goreman`
 `goreman start`
 
-## Killing a node
+## REPL
 
-`cd src_kill`
-`go build -o raft_kill`
-`./raft_kill address_of_nodes_to_kill`
+`cd src_repl`
+`go build -o raft_repl`
+
+`./raft_repl --to_kill address_of_nodes`
+`./raft_repl --to_speed [low|medium|high],address_of_nodes`

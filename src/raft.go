@@ -23,6 +23,11 @@ const (
 	Leader NodeState = "Leader"
 )
 
+type NodeSpeed struct {
+	key string
+	value int
+}
+
 // Peer represents a connection to another node
 type Peer struct {
 	Connected bool
@@ -77,6 +82,7 @@ type Node struct {
 	Channels NodeChannels
 
 	Log []LogEntry
+	Speed       NodeSpeed
 }
 
 // NewNode creates a new node
@@ -104,6 +110,7 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		Channels: NewNodeChannels(),
 
 		Log: []LogEntry{},
+		Speed:       NodeSpeed{"medium", 600},
 	}
 }
 
@@ -197,6 +204,28 @@ func (n *Node) Start() {
 func (n *Node) Stop(false_arg string, false_res *string) error {
 	n.State = Dead
 	log.Printf("Node %d [%s]\n", n.Peer_ID, n.State)
+	return nil
+}
+
+func (n *Node) ChangeSpeed(new_speed_string string, false_res *string) error {
+
+	var new_speed NodeSpeed
+	switch new_speed_string {
+	case "high":
+		new_speed = NodeSpeed{"high", 300}
+	case "medium":
+		new_speed = NodeSpeed{"medium", 600}
+	case "low":
+		new_speed = NodeSpeed{"low", 1000}
+	default:
+		log.Printf("ChangeSpeed : unknow speed specification : %s", new_speed_string)
+		return nil
+	}
+	
+	log.Printf("Node %d [%s]: old speed state %s -> new speed state %s \n", n.Peer_ID, n.State, n.Speed.key, new_speed.key)
+	
+	n.Speed = new_speed
+
 	return nil
 }
 
