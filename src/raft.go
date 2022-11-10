@@ -13,6 +13,8 @@ import (
 type NodeState string
 
 const (
+	// NodeStateDead is the state of a node that is dead
+	Dead NodeState = "Dead"
 	// NodeStateFollower is the state of a node that is not the leader
 	Follower NodeState = "Follower"
 	// NodeStateCandidate is the state of a node that is running for leader
@@ -192,8 +194,10 @@ func (n *Node) Start() {
 	go n.Step()
 }
 
-func (n *Node) Stop() {
-	// TODO
+func (n *Node) Stop(false_arg string, false_res *string) error {
+	n.State = Dead
+	log.Printf("Node %d [%s]\n", n.Peer_ID, n.State)
+	return nil
 }
 
 func (n *Node) startRpc(port string) {
