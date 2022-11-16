@@ -71,11 +71,11 @@ type Node struct {
 	VotedFor    uuid.UUID
 	VotedCount  int
 
-	commitIndex int
-	lastApplied int
+	CommitIndex int
+	LastApplied int
 
-	nextIndex  []int
-	matchIndex []int
+	NextIndex  []int
+	MatchIndex []int
 
 	State    NodeState
 	Peers    []*Peer
@@ -99,11 +99,11 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		VotedFor:    uuid.Nil,
 		VotedCount:  0,
 
-		commitIndex: 0,
-		lastApplied: 0,
+		CommitIndex: 0,
+		LastApplied: 0,
 
-		nextIndex:  make([]int, len(peers)),
-		matchIndex: make([]int, len(peers)),
+		NextIndex:  make([]int, len(peers)),
+		MatchIndex: make([]int, len(peers)),
 
 		State:    Follower,
 		Peers:    peers,
@@ -163,8 +163,8 @@ func (n *Node) stepCandidate() {
 				n.LeaderAddress = n.PeerAddress
 
 				for i := 0; i < len(n.Peers); i++ {
-					n.nextIndex[i] = len(n.Log) + 1
-					n.matchIndex[i] = 0
+					n.NextIndex[i] = len(n.Log) + 1
+					n.MatchIndex[i] = 0
 				}
 
 				return
