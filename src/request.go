@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"log"
 	"net/rpc"
 
@@ -57,6 +58,7 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 		res.Term = req.Term
 		res.VoteGranted = true
 	}
+	
 	return nil
 }
 
@@ -79,7 +81,9 @@ func (n *Node) broadcastRequestVotes() {
 			var res VoteResponse
 			err = client.Call("Node.RequestVotes", req, &res)
 			if err != nil {
-				log.Println(err)
+				if err.Error() != "Node is dead" {
+					log.Println(err)
+				}
 				return
 			}
 			n.Channels.VoteResponse <- res
@@ -89,6 +93,10 @@ func (n *Node) broadcastRequestVotes() {
 
 // AppendEntries is the RPC method to append entries to the log
 func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesResponse) error {
+	if n.State == "Dead" {
+		return errors.New("Node is dead")
+	}
+
 	if req.Term < n.CurrentTerm {
 		res.Term = n.CurrentTerm
 		res.Success = false
@@ -133,8 +141,11 @@ func (n *Node) broadcastAppendEntries() {
 
 			var res AppendEntriesResponse
 			err = client.Call("Node.AppendEntries", req, &res)
+
 			if err != nil {
-				log.Println(err)
+				if err.Error() != "Node is dead" {
+					log.Println(err)
+				}
 				return
 			}
 			n.Channels.AppendEntriesResponse <- res

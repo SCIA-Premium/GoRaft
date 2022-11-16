@@ -6,7 +6,7 @@ import (
 
 func (n *Node) Stop(false_arg string, false_res *string) error {
 	n.State = Dead
-	log.Printf("Node %d [%s]\n", n.Peer_ID, n.State)
+	log.Printf("Node %d [%s]\n", n.PeerID, n.State)
 	return nil
 }
 
@@ -24,9 +24,9 @@ func (n *Node) ChangeSpeed(new_speed_string string, false_res *string) error {
 		log.Printf("ChangeSpeed : unknow speed specification : %s", new_speed_string)
 		return nil
 	}
-	
-	log.Printf("Node %d [%s]: old speed state %s -> new speed state %s \n", n.Peer_ID, n.State, n.Speed.key, new_speed.key)
-	
+
+	log.Printf("Node %d [%s]: old speed state %s -> new speed state %s \n", n.PeerID, n.State, n.Speed.key, new_speed.key)
+
 	n.Speed = new_speed
 
 	return nil

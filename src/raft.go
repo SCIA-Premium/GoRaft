@@ -24,7 +24,7 @@ const (
 )
 
 type NodeSpeed struct {
-	key string
+	key   string
 	value int
 }
 
@@ -81,8 +81,8 @@ type Node struct {
 	Peers    []*Peer
 	Channels NodeChannels
 
-	Log []LogEntry
-	Speed       NodeSpeed
+	Log   []LogEntry
+	Speed NodeSpeed
 }
 
 // NewNode creates a new node
@@ -109,8 +109,8 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		Peers:    peers,
 		Channels: NewNodeChannels(),
 
-		Log: []LogEntry{},
-		Speed:       NodeSpeed{"medium", 600},
+		Log:   []LogEntry{},
+		Speed: NodeSpeed{"medium", 600},
 	}
 }
 
@@ -139,32 +139,36 @@ func (n *Node) stepCandidate() {
 	n.VotedCount = 1
 	go n.broadcastRequestVotes()
 
-	select {
-	case res := <-n.Channels.VoteResponse:
-		if res.Term > n.CurrentTerm {
-			n.CurrentTerm = res.Term
-			n.State = Follower
-			n.VotedFor = uuid.Nil
-			return
-		}
-		if res.VoteGranted {
-			n.VotedCount++
-		}
-		if n.VotedCount >= (len(n.Peers)+1)/2+1 {
-			log.Printf("Node %d [%s]: I'm the new leader !\n", n.PeerID, n.State)
-			n.State = Leader
-
-			n.LeaderUID = n.PeerUID
-			n.LeaderAddress = n.PeerAddress
-
-			for i := 0; i < len(n.Peers); i++ {
-				n.nextIndex[i] = len(n.Log) + 1
-				n.matchIndex[i] = 0
+	for {
+		select {
+		case res := <-n.Channels.VoteResponse:
+			if res.Term > n.CurrentTerm {
+				n.CurrentTerm = res.Term
+				n.State = Follower
+				n.VotedFor = uuid.Nil
+				return
 			}
+			if res.VoteGranted {
+				n.VotedCount++
+			}
+			if n.VotedCount >= (len(n.Peers)+1)/2+1 {
+				log.Printf("Node %d [%s]: I'm the new leader !\n", n.PeerID, n.State)
+				n.State = Leader
+
+				n.LeaderUID = n.PeerUID
+				n.LeaderAddress = n.PeerAddress
+
+				for i := 0; i < len(n.Peers); i++ {
+					n.nextIndex[i] = len(n.Log) + 1
+					n.matchIndex[i] = 0
+				}
+
+				return
+			}
+		case <-time.After(time.Duration((rand.Intn(200)+300)*10) * time.Millisecond):
+			log.Printf("Node %d [%s]: timeout -> change State to Follower\n", n.PeerID, n.State)
+			n.State = Follower
 		}
-	case <-time.After(time.Duration((rand.Intn(200)+300)*10) * time.Millisecond):
-		log.Printf("Node %d [%s]: timeout -> change State to Follower\n", n.PeerID, n.State)
-		n.State = Follower
 	}
 }
 
