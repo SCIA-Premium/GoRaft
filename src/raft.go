@@ -111,7 +111,7 @@ func (n *Node) stepCandidate() {
 		if res.VoteGranted {
 			n.VotedCount++
 		}
-		if n.VotedCount >= len(n.Peers)/2+1 {
+		if n.VotedCount >= (len(n.Peers) + 1) / 2 + 1 {
 			log.Printf("Node %d [%s]: I'm the new leader !\n", n.Peer_ID, n.State)
 			n.State = Leader
 		}
