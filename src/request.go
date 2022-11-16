@@ -3,6 +3,7 @@ package main
 import (
 	"log"
 	"net/rpc"
+
 	"github.com/google/uuid"
 )
 
@@ -15,12 +16,13 @@ type LogEntry struct {
 
 // AppendEntriesRequest is the request sent to append entries to the log
 type AppendEntriesRequest struct {
-	Term         int
-	LeaderID     uuid.UUID
-	PrevLogIndex int
-	PrevLogTerm  int
-	Entries      []LogEntry
-	LeaderCommit int
+	Term          int
+	LeaderUID     uuid.UUID
+	LeaderAddress string
+	PrevLogIndex  int
+	PrevLogTerm   int
+	Entries       []LogEntry
+	LeaderCommit  int
 }
 
 // AppendEntriesResponse is the response sent after appending entries to the log
@@ -62,11 +64,11 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 func (n *Node) broadcastRequestVotes() {
 	req := VoteRequest{
 		Term:        n.CurrentTerm,
-		CandidateID: n.ID,
+		CandidateID: n.PeerUID,
 	}
-	log.Printf("Node %d [%s]: Starting Leader Election\n", n.Peer_ID, n.State)
+	log.Printf("Node %d [%s]: Starting Leader Election\n", n.PeerID, n.State)
 	for _, peer := range n.Peers {
-		log.Printf("Node %d [%s]: Requesting vote from %s", n.Peer_ID, n.State, peer.Address)
+		log.Printf("Node %d [%s]: Requesting vote from %s", n.PeerID, n.State, peer.Address)
 		go func(peer *Peer) {
 			client, err := rpc.DialHTTP("tcp", peer.Address)
 			if err != nil {
@@ -86,13 +88,18 @@ func (n *Node) broadcastRequestVotes() {
 }
 
 // AppendEntries is the RPC method to append entries to the log
-func (n *Node) AppendEntries(req AppendEntriesRequest, res* AppendEntriesResponse) error {
-
+func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesResponse) error {
 	if req.Term < n.CurrentTerm {
 		res.Term = n.CurrentTerm
 		res.Success = false
 		return nil
 	}
+
+	n.CurrentTerm = req.Term
+	n.VotedFor = uuid.Nil
+	n.LeaderUID = req.LeaderUID
+	n.LeaderAddress = req.LeaderAddress
+	n.State = Follower
 
 	n.Channels.AppendEntriesRequest <- req
 	if len(req.Entries) == 0 {
@@ -111,9 +118,11 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res* AppendEntriesRespons
 // broadCastAppendEntries sends an append entries request to all peers
 func (n *Node) broadcastAppendEntries() {
 	req := AppendEntriesRequest{
-		Term:     n.CurrentTerm,
-		LeaderID: n.ID,
+		Term:          n.CurrentTerm,
+		LeaderUID:     n.PeerUID,
+		LeaderAddress: n.PeerAddress,
 	}
+
 	for _, peer := range n.Peers {
 		go func(peer *Peer) {
 			client, err := rpc.DialHTTP("tcp", peer.Address)
