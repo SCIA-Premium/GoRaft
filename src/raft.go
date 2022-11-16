@@ -114,6 +114,10 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 	}
 }
 
+func get_sleep_duration(n *Node) time.Duration {
+	return time.Duration((rand.Intn(200)+n.Speed.value)*10) * time.Millisecond
+}
+
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	select {
@@ -121,7 +125,7 @@ func (n *Node) stepFollower() {
 		if len(req.Entries) == 0 {
 			log.Printf("Node %d [%s]: received heartbeat\n", n.PeerID, n.State)
 		}
-	case <-time.After(time.Duration(rand.Intn(200)+300) * time.Millisecond):
+	case <-time.After(get_sleep_duration(n)):
 		log.Printf("Node %d [%s]: timeout -> change State to Candidate\n", n.PeerID, n.State)
 		n.State = Candidate
 
@@ -165,7 +169,7 @@ func (n *Node) stepCandidate() {
 
 				return
 			}
-		case <-time.After(time.Duration((rand.Intn(200)+300)*10) * time.Millisecond):
+		case <-time.After(get_sleep_duration(n)):
 			log.Printf("Node %d [%s]: timeout -> change State to Follower\n", n.PeerID, n.State)
 			n.State = Follower
 		}
