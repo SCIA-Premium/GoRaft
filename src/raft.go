@@ -14,8 +14,6 @@ import (
 type NodeState string
 
 const (
-	// NodeStateDead is the state of a node that is dead
-	Dead NodeState = "Dead"
 	// NodeStateFollower is the state of a node that is not the leader
 	Follower NodeState = "Follower"
 	// NodeStateCandidate is the state of a node that is running for leader
@@ -83,7 +81,10 @@ type Node struct {
 	Channels NodeChannels
 
 	SpeedState SpeedState
-	Log        []LogEntry
+	Alive      bool
+
+	Log []LogEntry
+
 	RegisteredFiles map[uuid.UUID]string
 }
 
@@ -111,8 +112,11 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		Peers:    peers,
 		Channels: NewNodeChannels(),
 
-		Log:        []LogEntry{},
 		SpeedState: SpeedState{"medium", 600},
+		Alive:      true,
+
+		Log: []LogEntry{},
+
 		RegisteredFiles: make(map[uuid.UUID]string),
 	}
 }
@@ -144,16 +148,16 @@ func (n *Node) stepFollower() {
 	case req := <-n.Channels.AppendEntriesRequest:
 		if len(req.Entries) == 0 {
 			log.Printf("[T%d][%s]: received heartbeat\n", n.CurrentTerm, n.State)
-			if req.LeaderCommit > n.CommitIndex {
-				for i := n.LastApplied; i < req.LeaderCommit; i++ {
-					n.Log[i].Committed = true
-					n.executeCommandFollower(n.Log[i].Command)
-				}
-				n.LastApplied = req.LeaderCommit
-				n.CommitIndex = req.LeaderCommit
-			}
 		} else {
 			log.Printf("[T%d][%s]: received AppendEntriesRequest : %d\n", n.CurrentTerm, n.State, len(req.Entries))
+		}
+
+		if req.LeaderCommit > n.CommitIndex {
+			for i := n.LastApplied; i < req.LeaderCommit; i++ {
+				n.Log[i].Committed = true
+				n.executeCommandFollower(n.Log[i].Command)
+			}
+			n.LastApplied = req.LeaderCommit
 		}
 	case <-time.After(get_sleep_duration(n)):
 		log.Printf("[T%d][%s]: timeout -> change State to Candidate\n", n.CurrentTerm, n.State)
@@ -189,8 +193,9 @@ func (n *Node) stepCandidate() {
 				n.LeaderAddress = n.PeerAddress
 
 				for i := 0; i < len(n.Peers); i++ {
-					n.NextIndex[i] = len(n.Log) + 1
-					n.MatchIndex[i] = 0
+					// FIXME
+					n.NextIndex[i] = n.LastApplied + 1
+					n.MatchIndex[i] = n.LastApplied
 				}
 
 				return
@@ -206,11 +211,17 @@ func (n *Node) stepCandidate() {
 func (n *Node) stepLeader() {
 	select {
 	case res := <-n.Channels.AppendEntriesResponse:
-		log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
-		if res.Success && res.RequestID != 0 {
+		if res.Success && res.RequestID == 0 {
+			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+			return
+		}
+
+		if res.Success {
+			log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
 			for i := n.MatchIndex[res.NodeRelativeID]; i < res.RequestID; i++ {
 				n.Log[i].Count += 1
-				if !n.Log[i].Committed && (n.Log[i].Count > (len(n.Peers))/2) {
+				if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
+					log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
 					n.Log[i].Committed = true
 					n.CommitIndex = i + 1
 					n.LastApplied = i
@@ -219,13 +230,28 @@ func (n *Node) stepLeader() {
 
 			n.MatchIndex[res.NodeRelativeID] = res.RequestID
 			n.NextIndex[res.NodeRelativeID] = res.RequestID + 1
-
-		} else {
-			log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
-			n.NextIndex[res.NodeRelativeID] -= 1
+			return
 		}
+
+		log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+
+		if res.Term > n.CurrentTerm {
+			log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, res.Term)
+			n.CurrentTerm = res.Term
+			n.State = Follower
+			n.VotedFor = uuid.Nil
+			return
+		}
+
+		log.Printf("[T%d][%s]: decrementing nextIndex of %d to %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, n.NextIndex[res.NodeRelativeID]-1)
+		log.Printf("[T%d][%s]: n.LastApplied = %d\n", n.CurrentTerm, n.State, n.LastApplied)
+
+		n.NextIndex[res.NodeRelativeID] -= 1
+		if n.NextIndex[res.NodeRelativeID] < n.LastApplied {
+			n.NextIndex[res.NodeRelativeID] = n.LastApplied
+		}
+		return
 	default:
-		log.Printf("[T%d][%s]: broadcast AppendEntriesRequest\n", n.CurrentTerm, n.State)
 		n.broadcastAppendEntries()
 		time.Sleep(1000 * time.Millisecond)
 	}
@@ -233,13 +259,15 @@ func (n *Node) stepLeader() {
 
 func (n *Node) Step() {
 	for {
-		switch n.State {
-		case Follower:
-			n.stepFollower()
-		case Candidate:
-			n.stepCandidate()
-		case Leader:
-			n.stepLeader()
+		if n.Alive {
+			switch n.State {
+			case Follower:
+				n.stepFollower()
+			case Candidate:
+				n.stepCandidate()
+			case Leader:
+				n.stepLeader()
+			}
 		}
 	}
 }
