@@ -19,14 +19,23 @@ The general idea is as follows: customers offer values / commands to **servers**
 
 ---
 
-## RAFT
+## Build
 
-### Build
+The provided `Makefile` build all the necessary executables with the following simple command : 
 
 ```bash
-cd src
-go build -o raft
+make
 ```
+
+It is also possible to build the executable separately :
+
+```bash
+make raft
+make raft_repl
+make raft_clsf
+```
+
+## RAFT
 
 ### Testing
 
@@ -52,13 +61,6 @@ node3: ./raft --peer_id 3 --peer 127.0.0.1:12379,127.0.0.1:22379 --port :32379
 
 ## REPL
 
-### Build
-
-```bash
-cd src_repl
-go build -o raft_repl
-```
-
 ### Testing
 
 ```bash
@@ -70,13 +72,6 @@ go build -o raft_repl
 ---
 
 ## CLSF
-
-### Build
-
-```bash
-cd src_clsf
-go build -o raft_clsf
-```
 
 ### Testing
 
