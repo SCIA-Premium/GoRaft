@@ -257,9 +257,9 @@ func (n *Node) Start() {
 func (n *Node) startRpc(port string) {
 	rpc.Register(n)
 	rpc.HandleHTTP()
-	log.Printf("[T%d][%s] : now listening on %s\n", n.CurrentTerm, n.State, port)
+	log.Printf("[T%d][%s] : now listening on port %s\n", n.CurrentTerm, n.State, port)
 	go func() {
-		err := http.ListenAndServe(port, nil)
+		err := http.ListenAndServe(":"+port, nil)
 		if err != nil {
 			log.Fatalf("[T%d][%s] : Listen error: %s", n.PeerID, n.State, err)
 		}

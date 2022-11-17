@@ -22,7 +22,7 @@ func (n *Node) handle_error() error {
 	}
 
 	if n.LeaderUID != n.PeerUID {
-		return fmt.Errorf("The leader address is : %s", n.LeaderAddress)
+		return fmt.Errorf("The leader port is %s", n.LeaderAddress)
 	}
 
 	return nil
