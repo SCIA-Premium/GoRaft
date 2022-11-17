@@ -12,7 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
-func (n *Node) List(args string, res *string) error {
+func (n *Node) handle_error() error {
 	if !n.Alive {
 		return errors.New("Node is not alive")
 	}
@@ -23,6 +23,31 @@ func (n *Node) List(args string, res *string) error {
 
 	if n.LeaderUID != n.PeerUID {
 		return fmt.Errorf("The leader address is : %s", n.LeaderAddress)
+	}
+
+	return nil
+}
+
+func (n *Node) wait_commit(index int, err error) error {
+	for {
+		if len(n.Log) <= index {
+			return err
+		}
+
+		if n.Log[index].Committed {
+			break
+		}
+
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	return nil
+}
+
+func (n *Node) List(args string, res *string) error {
+	err := n.handle_error()
+	if err != nil {
+		return err
 	}
 
 	*res = ""
@@ -47,16 +72,9 @@ func (n *Node) load(filename string, s_uuid string) error {
 }
 
 func (n *Node) Load(filename string, res *string) error {
-	if !n.Alive {
-		return errors.New("Node is not alive")
-	}
-
-	if n.LeaderUID == uuid.Nil {
-		return errors.New("No leader")
-	}
-
-	if n.LeaderUID != n.PeerUID {
-		return fmt.Errorf("The leader port is %s", n.LeaderAddress)
+	err := n.handle_error()
+	if err != nil {
+		return err
 	}
 
 	save_len_log := len(n.Log)
@@ -64,19 +82,15 @@ func (n *Node) Load(filename string, res *string) error {
 	filename_uid := uuid.New()
 	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "LOAD " + filename + " " + filename_uid.String(), 1, false})
 
-	for {
-		if len(n.Log) <= save_len_log {
-			return fmt.Errorf("Could not load file %s", filename)
-		}
-
-		if n.Log[save_len_log].Committed {
-			break
-		}
-
-		time.Sleep(100 * time.Millisecond)
+	err = n.wait_commit(save_len_log, fmt.Errorf("Could not load file %s", filename))
+	if err != nil {
+		return err
 	}
 
-	err := n.ExecuteCommand(n.Log[save_len_log].Command)
+	err = n.ExecuteCommand(n.Log[save_len_log].Command)
+	if err != nil {
+		return err
+	}
 
 	*res = filename_uid.String()
 
@@ -101,33 +115,20 @@ func (n *Node) delete(s_uuid string) error {
 }
 
 func (n *Node) Delete(args string, res *string) error {
-	if !n.Alive {
-		return errors.New("Node is not alive")
-	}
-
-	if n.LeaderUID == uuid.Nil {
-		return errors.New("No leader")
-	}
-
-	if n.LeaderUID != n.PeerUID {
-		return fmt.Errorf("The leader port is %s", n.LeaderAddress)
+	err := n.handle_error()
+	if err != nil {
+		return err
 	}
 
 	save_len_log := len(n.Log)
 	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "DELETE " + args, 1, false})
 
-	for {
-		if len(n.Log) < save_len_log {
-			return fmt.Errorf("Could not delete file %s", args)
-		}
-
-		if n.Log[save_len_log].Committed {
-			break
-		}
-		time.Sleep(100 * time.Millisecond)
+	err = n.wait_commit(save_len_log, fmt.Errorf("Could not delete file %s", args))
+	if err != nil {
+		return err
 	}
 
-	err := n.ExecuteCommand(n.Log[save_len_log].Command)
+	err = n.ExecuteCommand(n.Log[save_len_log].Command)
 
 	return err
 }
