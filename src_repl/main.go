@@ -34,6 +34,16 @@ func crash(client *rpc.Client) {
 	}
 }
 
+func recovery(client *rpc.Client) {
+	var args string
+	var res string
+	err := client.Call("Node.Recovery", args, &res)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+}
+
 func main() {
 	// Parse the command line arguments
 	address := os.Args[1]
@@ -49,5 +59,7 @@ func main() {
 		speed(client, args[1])
 	case "CRASH":
 		crash(client)
+	case "RECOVERY":
+		recovery(client)
 	}
 }
