@@ -132,7 +132,7 @@ func (n *Node) executeCommand(command string) error {
 	splited := strings.Split(command, " ")
 	switch splited[0] {
 	case "LOAD":
-		s_uid, filename := splited[1], splited[2]
+		filename, s_uid := splited[1], splited[2]
 		file_uid, _ := uuid.Parse(s_uid)
 		n.RegisteredFiles[file_uid] = filename
 		_, err := os.Create("output/node_" + strconv.Itoa(n.PeerID) + "/" + filename)
