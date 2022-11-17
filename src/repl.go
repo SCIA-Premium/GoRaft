@@ -6,7 +6,7 @@ import (
 
 func (n *Node) Crash(false_arg string, false_res *string) error {
 	n.State = Dead
-	log.Printf("Node %d [%s]\n", n.PeerID, n.State)
+	log.Printf("[T%d][%s]\n", n.CurrentTerm, n.State)
 	return nil
 }
 
@@ -25,6 +25,7 @@ func (n *Node) Speed(new_speed_string string, false_res *string) error {
 		return nil
 	}
 
+	log.Printf("[T%d][%s]: old speed state %s -> new speed state %s \n", n.CurrentTerm, n.State, n.Speed.key, new_speed.key)
 	log.Printf("Node %d [%s]: old speed state %s -> new speed state %s \n", n.PeerID, n.State, n.SpeedState.key, new_speed.key)
 
 	n.SpeedState = new_speed

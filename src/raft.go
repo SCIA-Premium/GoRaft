@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/rpc"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -81,8 +82,9 @@ type Node struct {
 	Peers    []*Peer
 	Channels NodeChannels
 
-	Log        []LogEntry
 	SpeedState SpeedState
+	Log        []LogEntry
+	RegisteredFiles map[uuid.UUID]string
 }
 
 // NewNode creates a new node
@@ -111,6 +113,7 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 
 		Log:        []LogEntry{},
 		SpeedState: SpeedState{"medium", 600},
+		RegisteredFiles: make(map[uuid.UUID]string),
 	}
 }
 
@@ -118,26 +121,44 @@ func get_sleep_duration(n *Node) time.Duration {
 	return time.Duration((rand.Intn(200)+n.SpeedState.value)*10) * time.Millisecond
 }
 
+func (n *Node) executeCommandFollower(command string) {
+	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
+	splited := strings.Split(command, " ")
+	switch splited[0] {
+	case "LOAD":
+		file_uid, _ := uuid.Parse(splited[2])
+		n.RegisteredFiles[file_uid] = splited[1]
+	case "DELETE":
+	case "APPEND":
+	}
+}
+
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	select {
 	case req := <-n.Channels.AppendEntriesRequest:
 		if len(req.Entries) == 0 {
-			log.Printf("Node %d [%s]: received heartbeat\n", n.PeerID, n.State)
+			log.Printf("[T%d][%s]: received heartbeat\n", n.CurrentTerm, n.State)
+			if req.LeaderCommit > n.CommitIndex {
+				for i := n.LastApplied; i < req.LeaderCommit; i++ {
+					n.Log[i].Committed = true
+					n.executeCommandFollower(n.Log[i].Command)
+				}
+				n.LastApplied = req.LeaderCommit
+				n.CommitIndex = req.LeaderCommit
+			}
+		} else {
+			log.Printf("[T%d][%s]: received AppendEntriesRequest : %d\n", n.CurrentTerm, n.State, len(req.Entries))
 		}
 	case <-time.After(get_sleep_duration(n)):
-		log.Printf("Node %d [%s]: timeout -> change State to Candidate\n", n.PeerID, n.State)
+		log.Printf("[T%d][%s]: timeout -> change State to Candidate\n", n.CurrentTerm, n.State)
 		n.State = Candidate
-
-		n.CurrentTerm++
-		n.VotedFor = n.PeerUID
-		n.VotedCount = 1
 	}
 }
 
 // StepCandidate is the state of a node that is running for leader
 func (n *Node) stepCandidate() {
-	log.Printf("Node %d [%s]: I'm candidate !\n", n.PeerID, n.State)
+	log.Printf("[T%d][%s]: I'm candidate !\n", n.CurrentTerm, n.State)
 	n.CurrentTerm++
 	n.VotedFor = n.PeerUID
 	n.VotedCount = 1
@@ -156,7 +177,7 @@ func (n *Node) stepCandidate() {
 				n.VotedCount++
 			}
 			if n.VotedCount >= (len(n.Peers)+1)/2+1 {
-				log.Printf("Node %d [%s]: I'm the new leader !\n", n.PeerID, n.State)
+				log.Printf("[T%d][%s]: I'm the new leader !\n", n.CurrentTerm, n.State)
 				n.State = Leader
 
 				n.LeaderUID = n.PeerUID
@@ -170,7 +191,7 @@ func (n *Node) stepCandidate() {
 				return
 			}
 		case <-time.After(get_sleep_duration(n)):
-			log.Printf("Node %d [%s]: timeout -> change State to Follower\n", n.PeerID, n.State)
+			log.Printf("[T%d][%s]: timeout -> change State to Follower\n", n.CurrentTerm, n.State)
 			n.State = Follower
 		}
 	}
@@ -180,14 +201,28 @@ func (n *Node) stepCandidate() {
 func (n *Node) stepLeader() {
 	select {
 	case res := <-n.Channels.AppendEntriesResponse:
-		if res.Success {
-			// TODO
+		log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
+		if res.Success && res.RequestID != 0 {
+			for i := n.MatchIndex[res.NodeRelativeID]; i < res.RequestID; i++ {
+				n.Log[i].Count += 1
+				if !n.Log[i].Committed && (n.Log[i].Count > (len(n.Peers))/2) {
+					n.Log[i].Committed = true
+					n.CommitIndex = i + 1
+					n.LastApplied = i
+				}
+			}
+
+			n.MatchIndex[res.NodeRelativeID] = res.RequestID
+			n.NextIndex[res.NodeRelativeID] = res.RequestID + 1
+
 		} else {
-			// TODO
+			log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+			n.NextIndex[res.NodeRelativeID] -= 1
 		}
 	default:
+		log.Printf("[T%d][%s]: broadcast AppendEntriesRequest\n", n.CurrentTerm, n.State)
 		n.broadcastAppendEntries()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
 
@@ -212,11 +247,11 @@ func (n *Node) Start() {
 func (n *Node) startRpc(port string) {
 	rpc.Register(n)
 	rpc.HandleHTTP()
-	log.Printf("Node %d [%s] : now listening on %s\n", n.PeerID, n.State, port)
+	log.Printf("[T%d][%s] : now listening on %s\n", n.CurrentTerm, n.State, port)
 	go func() {
 		err := http.ListenAndServe(port, nil)
 		if err != nil {
-			log.Fatalf("Node %d [%s] : Listen error: %s", n.PeerID, n.State, err)
+			log.Fatalf("[T%d][%s] : Listen error: %s", n.PeerID, n.State, err)
 		}
 	}()
 }
