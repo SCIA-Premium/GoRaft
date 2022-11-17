@@ -1,8 +1,6 @@
 # Binary
 raft
 raft_repl
+raft_clsf
 
 .vscode
-src_kill/raft_kill
-
-src_clsf/raft_clsf

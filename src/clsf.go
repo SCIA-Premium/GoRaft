@@ -44,7 +44,7 @@ func (n *Node) Load(args string, res *string) error {
 
 	filename_uid := uuid.New()
 	save_len_log := len(n.Log)
-	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "LOAD " + args + " " + filename_uid.String(), 0, false})
+	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "LOAD " + args + " " + filename_uid.String(), 1, false})
 
 	for {
 		if len(n.Log) <= save_len_log {
