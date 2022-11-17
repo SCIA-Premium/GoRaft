@@ -3,6 +3,10 @@ package main
 import (
 	"errors"
 	"fmt"
+	"log"
+	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -29,6 +33,19 @@ func (n *Node) List(args string, res *string) error {
 	return nil
 }
 
+func (n *Node) load(filename string, s_uuid string) error {
+	file_uid, _ := uuid.Parse(s_uuid)
+
+	n.RegisteredFiles[file_uid] = filename
+
+	_, err := os.Create("output/node_" + strconv.Itoa(n.PeerID) + "/" + filename)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (n *Node) Load(filename string, res *string) error {
 	if !n.Alive {
 		return errors.New("Node is not alive")
@@ -42,8 +59,9 @@ func (n *Node) Load(filename string, res *string) error {
 		return fmt.Errorf("The leader port is %s", n.LeaderAddress)
 	}
 
-	filename_uid := uuid.New()
 	save_len_log := len(n.Log)
+
+	filename_uid := uuid.New()
 	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "LOAD " + filename + " " + filename_uid.String(), 1, false})
 
 	for {
@@ -54,17 +72,32 @@ func (n *Node) Load(filename string, res *string) error {
 		if n.Log[save_len_log].Committed {
 			break
 		}
+
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	err := n.executeCommand(n.Log[save_len_log].Command)
+	err := n.ExecuteCommand(n.Log[save_len_log].Command)
+
+	*res = filename_uid.String()
+
+	return err
+}
+
+func (n *Node) delete(s_uuid string) error {
+	file_uid, err := uuid.Parse(s_uuid)
 	if err != nil {
 		return err
 	}
 
-	*res = filename_uid.String()
+	if _, ok := n.RegisteredFiles[file_uid]; !ok {
+		return errors.New("File not found")
+	}
 
-	return nil
+	// Remove file
+	err = os.Remove("output/node_" + strconv.Itoa(n.PeerID) + "/" + n.RegisteredFiles[file_uid])
+	delete(n.RegisteredFiles, file_uid)
+
+	return err
 }
 
 func (n *Node) Delete(args string, res *string) error {
@@ -94,16 +127,23 @@ func (n *Node) Delete(args string, res *string) error {
 		time.Sleep(100 * time.Millisecond)
 	}
 
-	uid_s, err := uuid.Parse(args)
-	if err != nil {
-		return err
-	}
+	err := n.ExecuteCommand(n.Log[save_len_log].Command)
 
-	if _, ok := n.RegisteredFiles[uid_s]; !ok {
-		return fmt.Errorf("File %s not found", args)
-	}
+	return err
+}
 
-	delete(n.RegisteredFiles, uid_s)
+func (n *Node) ExecuteCommand(command string) error {
+	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
+
+	splited := strings.Split(command, " ")
+
+	switch splited[0] {
+	case "LOAD":
+		return n.load(splited[1], splited[2])
+	case "DELETE":
+		return n.delete(splited[1])
+	case "APPEND":
+	}
 
 	return nil
 }

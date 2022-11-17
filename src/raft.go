@@ -5,9 +5,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/rpc"
-	"os"
-	"strconv"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -127,30 +124,6 @@ func get_sleep_duration(n *Node) time.Duration {
 	return time.Duration((rand.Intn(200)+n.SpeedState.value)*10) * time.Millisecond
 }
 
-func (n *Node) executeCommand(command string) error {
-	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
-	splited := strings.Split(command, " ")
-	switch splited[0] {
-	case "LOAD":
-		filename, s_uid := splited[1], splited[2]
-		file_uid, _ := uuid.Parse(s_uid)
-		n.RegisteredFiles[file_uid] = filename
-		_, err := os.Create("output/node_" + strconv.Itoa(n.PeerID) + "/" + filename)
-		if err != nil {
-			return err
-		}
-	case "DELETE":
-		file_uid, err := uuid.Parse(splited[1])
-		if err != nil {
-			return err
-		}
-		delete(n.RegisteredFiles, file_uid)
-	case "APPEND":
-	}
-
-	return nil
-}
-
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	select {
@@ -164,7 +137,7 @@ func (n *Node) stepFollower() {
 		if req.LeaderCommit >= n.CommitIndex && req.LeaderCommit != -1 {
 			for i := n.LastApplied + 1; i <= req.LeaderCommit; i++ {
 				n.Log[i].Committed = true
-				n.executeCommand(n.Log[i].Command)
+				n.ExecuteCommand(n.Log[i].Command)
 			}
 			n.LastApplied = req.LeaderCommit
 			n.CommitIndex = req.LeaderCommit
