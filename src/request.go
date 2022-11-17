@@ -117,6 +117,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	}
 
 	if req.Term > n.CurrentTerm {
+		log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, req.Term)
 		n.CurrentTerm = req.Term
 		n.VotedFor = uuid.Nil
 		n.Log = n.Log[:n.LastApplied]

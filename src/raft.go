@@ -212,11 +212,15 @@ func (n *Node) stepLeader() {
 	case res := <-n.Channels.AppendEntriesResponse:
 		if res.Success && res.RequestID == 0 {
 			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
-		} else if res.Success {
+			return
+		}
+
+		if res.Success {
 			log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
 			for i := n.MatchIndex[res.NodeRelativeID]; i < res.RequestID; i++ {
 				n.Log[i].Count += 1
 				if !n.Log[i].Committed && (n.Log[i].Count > (len(n.Peers))/2) {
+					log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
 					n.Log[i].Committed = true
 					n.CommitIndex = i + 1
 					n.LastApplied = i
@@ -225,10 +229,12 @@ func (n *Node) stepLeader() {
 
 			n.MatchIndex[res.NodeRelativeID] = res.RequestID
 			n.NextIndex[res.NodeRelativeID] = res.RequestID + 1
-		} else {
-			log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
-			n.NextIndex[res.NodeRelativeID] -= 1
+			return
 		}
+
+		log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+		n.NextIndex[res.NodeRelativeID] -= 1
+		return
 	default:
 		n.broadcastAppendEntries()
 		time.Sleep(1000 * time.Millisecond)
