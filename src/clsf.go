@@ -148,7 +148,7 @@ func (n *Node) append(s_uuid string, content string) error {
 	if err != nil {
 		return err
 	}
-	f.Write([]byte(content))
+	f.Write([]byte(content + "\n"))
 	f.Close()
 
 	return err
