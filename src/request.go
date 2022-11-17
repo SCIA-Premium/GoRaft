@@ -118,10 +118,15 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 
 	if req.Term > n.CurrentTerm {
 		log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, req.Term)
+		n.State = Follower
 		n.CurrentTerm = req.Term
 		n.VotedFor = uuid.Nil
-		n.Log = n.Log[:n.LastApplied]
-		n.State = Follower
+
+		if req.LeaderCommit == 0 {
+			n.Log = make([]LogEntry, 0)
+		} else {
+			n.Log = n.Log[:req.LeaderCommit]
+		}
 	}
 
 	n.VotedFor = uuid.Nil
@@ -139,6 +144,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	}
 
 	n.Log = append(n.Log, req.Entries...)
+	n.CommitIndex = len(n.Log)
 
 	res.RequestID = len(n.Log)
 	res.Success = true

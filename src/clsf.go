@@ -47,6 +47,10 @@ func (n *Node) Load(args string, res *string) error {
 	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "LOAD " + args + " " + filename_uid.String(), 0, false})
 
 	for {
+		if len(n.Log) <= save_len_log {
+			return fmt.Errorf("Could not load file %s", args)
+		}
+
 		if n.Log[save_len_log].Committed {
 			break
 		}
@@ -73,9 +77,13 @@ func (n *Node) Delete(args string, res *string) error {
 	}
 
 	save_len_log := len(n.Log)
-	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "DELETE " + args, 0, false})
+	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "DELETE " + args, 1, false})
 
 	for {
+		if len(n.Log) < save_len_log {
+			return fmt.Errorf("Could not delete file %s", args)
+		}
+
 		if n.Log[save_len_log].Committed {
 			break
 		}
