@@ -129,6 +129,11 @@ func (n *Node) executeCommandFollower(command string) {
 		file_uid, _ := uuid.Parse(splited[2])
 		n.RegisteredFiles[file_uid] = splited[1]
 	case "DELETE":
+		file_uid, err := uuid.Parse(splited[1])
+		if err != nil {
+			return
+		}
+		delete(n.RegisteredFiles, file_uid)
 	case "APPEND":
 	}
 }
