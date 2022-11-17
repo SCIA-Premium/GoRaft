@@ -13,14 +13,13 @@ func main() {
 	flag.Parse()
 
 	peers_list := strings.Split(*peers_addrs, ",")
-	// Create the peers map
-	peers := make(map[int]*Peer)
-	for k, v := range peers_list {
-		peers[k] = NewPeer(v)
+	peers := make([]*Peer, len(peers_list))
+	for i, v := range peers_list {
+		peers[i] = NewPeer(v)
 	}
 
 	// Create the node
-	node := NewNode(*peer_ID, peers)
+	node := NewNode(*peer_ID, *port, peers)
 	// Register the node to RPC
 	node.startRpc(*port)
 	// Start the node
