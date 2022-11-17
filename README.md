@@ -64,6 +64,7 @@ go build -o raft_repl
 ```bash
 ./raft_repl address CRASH
 ./raft_repl address SPEED (low|medium|high)
+./raft_repl address RECOVERY
 ```
 
 ---
