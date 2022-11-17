@@ -9,8 +9,8 @@ import (
 )
 
 func (n *Node) List(args string, res *string) error {
-	if n.State == Dead {
-		return errors.New("Node is dead")
+	if !n.Alive {
+		return errors.New("Node is not alive")
 	}
 
 	if n.LeaderUID == uuid.Nil {
@@ -30,8 +30,8 @@ func (n *Node) List(args string, res *string) error {
 }
 
 func (n *Node) Load(args string, res *string) error {
-	if n.State == Dead {
-		return errors.New("Node is dead")
+	if !n.Alive {
+		return errors.New("Node is not alive")
 	}
 
 	if n.LeaderUID == uuid.Nil {
@@ -60,8 +60,8 @@ func (n *Node) Load(args string, res *string) error {
 }
 
 func (n *Node) Delete(args string, res *string) error {
-	if n.State == Dead {
-		return errors.New("Node is dead")
+	if !n.Alive {
+		return errors.New("Node is not alive")
 	}
 
 	if n.LeaderUID == uuid.Nil {

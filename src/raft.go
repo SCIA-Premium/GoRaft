@@ -14,8 +14,6 @@ import (
 type NodeState string
 
 const (
-	// NodeStateDead is the state of a node that is dead
-	Dead NodeState = "Dead"
 	// NodeStateFollower is the state of a node that is not the leader
 	Follower NodeState = "Follower"
 	// NodeStateCandidate is the state of a node that is running for leader
@@ -83,7 +81,10 @@ type Node struct {
 	Channels NodeChannels
 
 	SpeedState SpeedState
-	Log        []LogEntry
+	Alive      bool
+
+	Log []LogEntry
+
 	RegisteredFiles map[uuid.UUID]string
 }
 
@@ -111,8 +112,11 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		Peers:    peers,
 		Channels: NewNodeChannels(),
 
-		Log:        []LogEntry{},
 		SpeedState: SpeedState{"medium", 600},
+		Alive:      true,
+
+		Log: []LogEntry{},
+
 		RegisteredFiles: make(map[uuid.UUID]string),
 	}
 }
