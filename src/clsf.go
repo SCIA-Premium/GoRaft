@@ -133,6 +133,46 @@ func (n *Node) Delete(args string, res *string) error {
 	return err
 }
 
+func (n *Node) append(s_uuid string, content string) error {
+	file_uid, err := uuid.Parse(s_uuid)
+	if err != nil {
+		return err
+	}
+
+	if _, ok := n.RegisteredFiles[file_uid]; !ok {
+		return errors.New("File not found")
+	}
+
+	// Append to file
+	f, err := os.OpenFile("output/node_"+strconv.Itoa(n.PeerID)+"/"+n.RegisteredFiles[file_uid], os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		return err
+	}
+	f.Write([]byte(content))
+	f.Close()
+
+	return err
+}
+
+func (n *Node) Append(args string, res *string) error {
+	err := n.handle_error()
+	if err != nil {
+		return err
+	}
+
+	save_len_log := len(n.Log)
+	n.Log = append(n.Log, LogEntry{n.CurrentTerm, save_len_log, "APPEND " + args, 1, false})
+
+	err = n.wait_commit(save_len_log, fmt.Errorf("Could not append in file", args))
+	if err != nil {
+		return err
+	}
+
+	err = n.ExecuteCommand(n.Log[save_len_log].Command)
+
+	return err
+}
+
 func (n *Node) ExecuteCommand(command string) error {
 	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
 
@@ -144,6 +184,7 @@ func (n *Node) ExecuteCommand(command string) error {
 	case "DELETE":
 		return n.delete(splited[1])
 	case "APPEND":
+		return n.append(splited[1], command[len(splited[0])+len(splited[1])+2:])
 	}
 
 	return nil

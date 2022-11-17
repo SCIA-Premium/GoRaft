@@ -56,7 +56,7 @@ func delete(client *rpc.Client, s_uuid string) {
 }
 
 func append(client *rpc.Client, s_uuid string, content string) {
-	args := []string{s_uuid, content}
+	args := s_uuid + " " + content
 	var res string
 	err := client.Call("Node.Append", args, &res)
 	if err != nil {
