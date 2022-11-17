@@ -26,7 +26,7 @@ func list(client *rpc.Client) {
 	}
 
 	if res == "" {
-		res = "(No files)"
+		res = "(No files)\n"
 	}
 
 	fmt.Printf("Available files uuid:\n%s", res)
