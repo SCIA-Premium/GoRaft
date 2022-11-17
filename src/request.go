@@ -88,7 +88,7 @@ func (n *Node) broadcastRequestVotes() {
 			var res VoteResponse
 			err = client.Call("Node.RequestVotes", req, &res)
 			if err != nil {
-				if err.Error() != "Node is dead" {
+				if err.Error() != "Node is not alive" {
 					log.Println(err)
 				}
 				return
@@ -100,8 +100,8 @@ func (n *Node) broadcastRequestVotes() {
 
 // AppendEntries is the RPC method to append entries to the log
 func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesResponse) error {
-	if n.State == "Dead" {
-		return errors.New("Node is dead")
+	if !n.Alive {
+		return errors.New("Node is not alive")
 	}
 
 	if req.Term < n.CurrentTerm {
@@ -131,6 +131,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	n.Channels.AppendEntriesRequest <- req
 	if len(req.Entries) == 0 {
 		// Heartbeat
+		res.RequestID = 0
 		res.Term = n.CurrentTerm
 		res.Success = true
 		return nil
@@ -146,6 +147,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 
 // broadCastAppendEntries sends an append entries request to all peers
 func (n *Node) broadcastAppendEntries() {
+	log.Printf("[T%d][%s]: broadcasting\n", n.CurrentTerm, n.State)
 	for i, peer := range n.Peers {
 		go func(peer *Peer, i int) {
 			client, err := rpc.DialHTTP("tcp", peer.Address)
@@ -178,15 +180,13 @@ func (n *Node) broadcastAppendEntries() {
 			err = client.Call("Node.AppendEntries", req, &res)
 
 			if err != nil {
-				if err.Error() != "Node is dead" {
+				if err.Error() != "Node is not alive" {
 					log.Println(err)
 				}
 				return
 			}
 
-			if len(req.Entries) > 0 {
-				n.Channels.AppendEntriesResponse <- res
-			}
+			n.Channels.AppendEntriesResponse <- res
 		}(peer, i)
 	}
 }

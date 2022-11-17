@@ -210,8 +210,10 @@ func (n *Node) stepCandidate() {
 func (n *Node) stepLeader() {
 	select {
 	case res := <-n.Channels.AppendEntriesResponse:
-		log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
-		if res.Success && res.RequestID != 0 {
+		if res.Success && res.RequestID == 0 {
+			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+		} else if res.Success {
+			log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
 			for i := n.MatchIndex[res.NodeRelativeID]; i < res.RequestID; i++ {
 				n.Log[i].Count += 1
 				if !n.Log[i].Committed && (n.Log[i].Count > (len(n.Peers))/2) {
@@ -223,13 +225,11 @@ func (n *Node) stepLeader() {
 
 			n.MatchIndex[res.NodeRelativeID] = res.RequestID
 			n.NextIndex[res.NodeRelativeID] = res.RequestID + 1
-
 		} else {
 			log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
 			n.NextIndex[res.NodeRelativeID] -= 1
 		}
 	default:
-		log.Printf("[T%d][%s]: broadcast AppendEntriesRequest\n", n.CurrentTerm, n.State)
 		n.broadcastAppendEntries()
 		time.Sleep(1000 * time.Millisecond)
 	}
@@ -237,13 +237,15 @@ func (n *Node) stepLeader() {
 
 func (n *Node) Step() {
 	for {
-		switch n.State {
-		case Follower:
-			n.stepFollower()
-		case Candidate:
-			n.stepCandidate()
-		case Leader:
-			n.stepLeader()
+		if n.Alive {
+			switch n.State {
+			case Follower:
+				n.stepFollower()
+			case Candidate:
+				n.stepCandidate()
+			case Leader:
+				n.stepLeader()
+			}
 		}
 	}
 }
