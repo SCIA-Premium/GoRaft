@@ -4,3 +4,5 @@ raft_repl
 
 .vscode
 src_kill/raft_kill
+
+src_clsf/raft_clsf

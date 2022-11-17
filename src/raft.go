@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"net/http"
 	"net/rpc"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -13,8 +14,6 @@ import (
 type NodeState string
 
 const (
-	// NodeStateDead is the state of a node that is dead
-	Dead NodeState = "Dead"
 	// NodeStateFollower is the state of a node that is not the leader
 	Follower NodeState = "Follower"
 	// NodeStateCandidate is the state of a node that is running for leader
@@ -71,18 +70,22 @@ type Node struct {
 	VotedFor    uuid.UUID
 	VotedCount  int
 
-	commitIndex int
-	lastApplied int
+	CommitIndex int
+	LastApplied int
 
-	nextIndex  []int
-	matchIndex []int
+	NextIndex  []int
+	MatchIndex []int
 
 	State    NodeState
 	Peers    []*Peer
 	Channels NodeChannels
 
-	Log        []LogEntry
 	SpeedState SpeedState
+	Alive      bool
+
+	Log []LogEntry
+
+	RegisteredFiles map[uuid.UUID]string
 }
 
 // NewNode creates a new node
@@ -99,18 +102,22 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		VotedFor:    uuid.Nil,
 		VotedCount:  0,
 
-		commitIndex: 0,
-		lastApplied: 0,
+		CommitIndex: 0,
+		LastApplied: 0,
 
-		nextIndex:  make([]int, len(peers)),
-		matchIndex: make([]int, len(peers)),
+		NextIndex:  make([]int, len(peers)),
+		MatchIndex: make([]int, len(peers)),
 
 		State:    Follower,
 		Peers:    peers,
 		Channels: NewNodeChannels(),
 
-		Log:        []LogEntry{},
 		SpeedState: SpeedState{"medium", 600},
+		Alive:      true,
+
+		Log: []LogEntry{},
+
+		RegisteredFiles: make(map[uuid.UUID]string),
 	}
 }
 
@@ -118,26 +125,49 @@ func get_sleep_duration(n *Node) time.Duration {
 	return time.Duration((rand.Intn(200)+n.SpeedState.value)*10) * time.Millisecond
 }
 
+func (n *Node) executeCommandFollower(command string) {
+	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
+	splited := strings.Split(command, " ")
+	switch splited[0] {
+	case "LOAD":
+		file_uid, _ := uuid.Parse(splited[2])
+		n.RegisteredFiles[file_uid] = splited[1]
+	case "DELETE":
+		file_uid, err := uuid.Parse(splited[1])
+		if err != nil {
+			return
+		}
+		delete(n.RegisteredFiles, file_uid)
+	case "APPEND":
+	}
+}
+
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	select {
 	case req := <-n.Channels.AppendEntriesRequest:
 		if len(req.Entries) == 0 {
-			log.Printf("Node %d [%s]: received heartbeat\n", n.PeerID, n.State)
+			log.Printf("[T%d][%s]: received heartbeat\n", n.CurrentTerm, n.State)
+		} else {
+			log.Printf("[T%d][%s]: received AppendEntriesRequest : %d\n", n.CurrentTerm, n.State, len(req.Entries))
+		}
+
+		if req.LeaderCommit > n.CommitIndex {
+			for i := n.LastApplied; i < req.LeaderCommit; i++ {
+				n.Log[i].Committed = true
+				n.executeCommandFollower(n.Log[i].Command)
+			}
+			n.LastApplied = req.LeaderCommit
 		}
 	case <-time.After(get_sleep_duration(n)):
-		log.Printf("Node %d [%s]: timeout -> change State to Candidate\n", n.PeerID, n.State)
+		log.Printf("[T%d][%s]: timeout -> change State to Candidate\n", n.CurrentTerm, n.State)
 		n.State = Candidate
-
-		n.CurrentTerm++
-		n.VotedFor = n.PeerUID
-		n.VotedCount = 1
 	}
 }
 
 // StepCandidate is the state of a node that is running for leader
 func (n *Node) stepCandidate() {
-	log.Printf("Node %d [%s]: I'm candidate !\n", n.PeerID, n.State)
+	log.Printf("[T%d][%s]: I'm candidate !\n", n.CurrentTerm, n.State)
 	n.CurrentTerm++
 	n.VotedFor = n.PeerUID
 	n.VotedCount = 1
@@ -156,21 +186,22 @@ func (n *Node) stepCandidate() {
 				n.VotedCount++
 			}
 			if n.VotedCount >= (len(n.Peers)+1)/2+1 {
-				log.Printf("Node %d [%s]: I'm the new leader !\n", n.PeerID, n.State)
+				log.Printf("[T%d][%s]: I'm the new leader !\n", n.CurrentTerm, n.State)
 				n.State = Leader
 
 				n.LeaderUID = n.PeerUID
 				n.LeaderAddress = n.PeerAddress
 
 				for i := 0; i < len(n.Peers); i++ {
-					n.nextIndex[i] = len(n.Log) + 1
-					n.matchIndex[i] = 0
+					// FIXME
+					n.NextIndex[i] = n.LastApplied + 1
+					n.MatchIndex[i] = n.LastApplied
 				}
 
 				return
 			}
 		case <-time.After(get_sleep_duration(n)):
-			log.Printf("Node %d [%s]: timeout -> change State to Follower\n", n.PeerID, n.State)
+			log.Printf("[T%d][%s]: timeout -> change State to Follower\n", n.CurrentTerm, n.State)
 			n.State = Follower
 		}
 	}
@@ -180,26 +211,63 @@ func (n *Node) stepCandidate() {
 func (n *Node) stepLeader() {
 	select {
 	case res := <-n.Channels.AppendEntriesResponse:
-		if res.Success {
-			// TODO
-		} else {
-			// TODO
+		if res.Success && res.RequestID == 0 {
+			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+			return
 		}
+
+		if res.Success {
+			log.Printf("[T%d][%s]: received AppendEntriesResponse from %d with nextIndex %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, res.RequestID)
+			for i := n.MatchIndex[res.NodeRelativeID]; i < res.RequestID; i++ {
+				n.Log[i].Count += 1
+				if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
+					log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
+					n.Log[i].Committed = true
+					n.CommitIndex = i + 1
+					n.LastApplied = i
+				}
+			}
+
+			n.MatchIndex[res.NodeRelativeID] = res.RequestID
+			n.NextIndex[res.NodeRelativeID] = res.RequestID + 1
+			return
+		}
+
+		log.Printf("[T%d][%s]: received a failed AppendEntriesResponse from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+
+		if res.Term > n.CurrentTerm {
+			log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, res.Term)
+			n.CurrentTerm = res.Term
+			n.State = Follower
+			n.VotedFor = uuid.Nil
+			return
+		}
+
+		log.Printf("[T%d][%s]: decrementing nextIndex of %d to %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, n.NextIndex[res.NodeRelativeID]-1)
+		log.Printf("[T%d][%s]: n.LastApplied = %d\n", n.CurrentTerm, n.State, n.LastApplied)
+
+		n.NextIndex[res.NodeRelativeID] -= 1
+		if n.NextIndex[res.NodeRelativeID] < n.LastApplied {
+			n.NextIndex[res.NodeRelativeID] = n.LastApplied
+		}
+		return
 	default:
 		n.broadcastAppendEntries()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(1000 * time.Millisecond)
 	}
 }
 
 func (n *Node) Step() {
 	for {
-		switch n.State {
-		case Follower:
-			n.stepFollower()
-		case Candidate:
-			n.stepCandidate()
-		case Leader:
-			n.stepLeader()
+		if n.Alive {
+			switch n.State {
+			case Follower:
+				n.stepFollower()
+			case Candidate:
+				n.stepCandidate()
+			case Leader:
+				n.stepLeader()
+			}
 		}
 	}
 }
@@ -212,11 +280,11 @@ func (n *Node) Start() {
 func (n *Node) startRpc(port string) {
 	rpc.Register(n)
 	rpc.HandleHTTP()
-	log.Printf("Node %d [%s] : now listening on %s\n", n.PeerID, n.State, port)
+	log.Printf("[T%d][%s] : now listening on %s\n", n.CurrentTerm, n.State, port)
 	go func() {
 		err := http.ListenAndServe(port, nil)
 		if err != nil {
-			log.Fatalf("Node %d [%s] : Listen error: %s", n.PeerID, n.State, err)
+			log.Fatalf("[T%d][%s] : Listen error: %s", n.PeerID, n.State, err)
 		}
 	}()
 }
