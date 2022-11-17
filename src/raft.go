@@ -23,7 +23,7 @@ const (
 	Leader NodeState = "Leader"
 )
 
-type NodeSpeed struct {
+type SpeedState struct {
 	key   string
 	value int
 }
@@ -81,8 +81,8 @@ type Node struct {
 	Peers    []*Peer
 	Channels NodeChannels
 
-	Log   []LogEntry
-	Speed NodeSpeed
+	Log        []LogEntry
+	SpeedState SpeedState
 }
 
 // NewNode creates a new node
@@ -109,13 +109,13 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 		Peers:    peers,
 		Channels: NewNodeChannels(),
 
-		Log:   []LogEntry{},
-		Speed: NodeSpeed{"medium", 600},
+		Log:        []LogEntry{},
+		SpeedState: SpeedState{"medium", 600},
 	}
 }
 
 func get_sleep_duration(n *Node) time.Duration {
-	return time.Duration((rand.Intn(200)+n.Speed.value)*10) * time.Millisecond
+	return time.Duration((rand.Intn(200)+n.SpeedState.value)*10) * time.Millisecond
 }
 
 // StepFollower is the state of a node that is not the leader
