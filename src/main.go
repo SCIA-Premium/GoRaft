@@ -3,6 +3,8 @@ package main
 import (
 	"flag"
 	"strings"
+	"os"
+	"strconv"
 )
 
 func main() {
@@ -20,6 +22,13 @@ func main() {
 
 	// Create the node
 	node := NewNode(*peer_ID, *port, peers)
+
+	// Create an output directory
+	os.Mkdir("output", 0777)
+
+	// Create the node directory in the output directory
+	os.Mkdir("output/" + "node_" + strconv.Itoa(*peer_ID), 0777)
+
 	// Register the node to RPC
 	node.startRpc(*port)
 	// Start the node

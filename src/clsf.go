@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+	"os"
+	"strconv"
 
 	"github.com/google/uuid"
 )
@@ -58,6 +60,13 @@ func (n *Node) Load(args string, res *string) error {
 	}
 
 	n.RegisteredFiles[filename_uid] = args
+
+	// Create the file in the node directory
+	_, err := os.Create("output/node_" + strconv.Itoa(n.PeerID) + "/" + filename_uid.String())
+	if err != nil {
+		return err
+	}
+
 	*res = filename_uid.String()
 
 	return nil
