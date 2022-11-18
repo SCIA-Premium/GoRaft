@@ -110,7 +110,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		return nil
 	}
 
-	if len(n.Log) > req.PrevLogIndex && n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
+	if req.PrevLogIndex != -1 && len(n.Log) > req.PrevLogIndex && n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
 		res.Term = n.CurrentTerm
 		res.Success = false
 		return nil
@@ -140,8 +140,16 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	if len(req.Entries) == 0 {
 		res.NodeRelativeNextIndex = len(n.Log)
 	} else {
-		log.Printf("[T%d][%s]: len(req.Entries) %d and len(n.log) %d\n", n.CurrentTerm, n.State, len(req.Entries), len(n.Log))
-		n.Log = append(n.Log, req.Entries...)
+		if req.PrevLogIndex == -1 {
+			n.Log = req.Entries
+		} else {
+			if len(n.Log) > req.PrevLogIndex+1 {
+				log.Printf("[T%d][%s]: Erasing bad logs\n", n.CurrentTerm, n.State)
+				n.Log = n.Log[:req.PrevLogIndex+1]
+			}
+			n.Log = append(n.Log, req.Entries...)
+		}
+
 		res.NodeRelativeNextIndex = len(n.Log)
 
 		n.CommitIndex = len(n.Log) - 1
@@ -178,8 +186,8 @@ func (n *Node) broadcastAppendEntries() {
 				req.PrevLogTerm = 0
 			} else {
 				if n.NextIndex[i] == 0 {
-					req.PrevLogIndex = 0
-					req.PrevLogTerm = 0
+					req.PrevLogIndex = -1
+					req.PrevLogTerm = -1
 					req.Entries = n.Log
 				} else {
 					req.PrevLogIndex = n.NextIndex[i] - 1
