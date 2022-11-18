@@ -30,6 +30,7 @@ type SpeedState struct {
 type Peer struct {
 	Connected bool
 	Address   string
+	Answerd   bool
 }
 
 // NewPeer creates a new Peer
@@ -37,6 +38,7 @@ func NewPeer(address string) *Peer {
 	return &Peer{
 		Connected: false,
 		Address:   address,
+		Answerd:   false,
 	}
 }
 
@@ -152,25 +154,43 @@ func (n *Node) stepFollower() {
 
 // StepCandidate is the state of a node that is running for leader
 func (n *Node) stepCandidate() {
+	log.Printf("[T%d][%s]: Starting Leader Election\n", n.CurrentTerm, n.State)
 	log.Printf("[T%d][%s]: I'm candidate !\n", n.CurrentTerm, n.State)
+
 	n.CurrentTerm++
 	n.VotedFor = n.PeerUID
 	n.VotedCount = 1
-	go n.broadcastRequestVotes()
 
-	for {
-		select {
-		case res := <-n.Channels.VoteResponse:
-			if res.Term > n.CurrentTerm {
-				n.CurrentTerm = res.Term
-				n.State = Follower
-				n.VotedFor = uuid.Nil
-				return
-			}
-			if res.VoteGranted {
+	go func() {
+		for {
+			select {
+			case res := <-n.Channels.VoteResponse:
+				if res.Term == -2 {
+					return
+				}
+
+				if res.Term > n.CurrentTerm {
+					n.CurrentTerm = res.Term
+					n.State = Follower
+					n.VotedFor = uuid.Nil
+					return
+				}
+
+				if n.Peers[res.NodeRelativeID].Answerd {
+					continue
+				}
+
+				n.Peers[res.NodeRelativeID].Answerd = true
+				if !res.VoteGranted {
+					continue
+				}
+
 				n.VotedCount++
-			}
-			if n.VotedCount >= (len(n.Peers)+1)/2+1 {
+
+				if n.VotedCount < (len(n.Peers)+1)/2+1 {
+					continue
+				}
+
 				log.Printf("[T%d][%s]: I'm the new leader !\n", n.CurrentTerm, n.State)
 				n.State = Leader
 
@@ -184,10 +204,23 @@ func (n *Node) stepCandidate() {
 
 				return
 			}
-		case <-time.After(get_sleep_duration(n)):
-			log.Printf("[T%d][%s]: timeout -> change State to Follower\n", n.CurrentTerm, n.State)
-			n.State = Follower
 		}
+	}()
+
+	for i := 0; i < 10; i++ {
+		n.broadcastRequestVotes()
+		time.Sleep(100 * time.Millisecond)
+
+		if n.State != Candidate {
+			break
+		}
+	}
+
+	if n.State == Candidate {
+		var stopResponse = VoteResponse{
+			Term: -2,
+		}
+		n.Channels.VoteResponse <- stopResponse
 	}
 }
 
