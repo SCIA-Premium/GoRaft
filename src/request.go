@@ -77,10 +77,10 @@ func (n *Node) broadcastRequestVotes() {
 		CandidateID: n.PeerUID,
 	}
 	for i, peer := range n.Peers {
-		if n.Peers[i].Answerd {
+		if n.Peers[i].Answered {
 			continue
 		}
-		
+
 		log.Printf("[T%d][%s]: Requesting vote from %s\n", n.CurrentTerm, n.State, peer.Address)
 		go func(i int, peer *Peer) {
 			client, err := rpc.DialHTTP("tcp", peer.Address)

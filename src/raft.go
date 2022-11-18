@@ -30,7 +30,7 @@ type SpeedState struct {
 type Peer struct {
 	Connected bool
 	Address   string
-	Answerd   bool
+	Answered  bool
 }
 
 // NewPeer creates a new Peer
@@ -38,7 +38,7 @@ func NewPeer(address string) *Peer {
 	return &Peer{
 		Connected: false,
 		Address:   address,
-		Answerd:   false,
+		Answered:  false,
 	}
 }
 
@@ -162,7 +162,7 @@ func (n *Node) stepCandidate() {
 	n.VotedCount = 1
 
 	for _, peer := range n.Peers {
-		peer.Answerd = false
+		peer.Answered = false
 	}
 
 	go func() {
@@ -180,11 +180,12 @@ func (n *Node) stepCandidate() {
 					return
 				}
 
-				if n.Peers[res.NodeRelativeID].Answerd {
+				if n.Peers[res.NodeRelativeID].Answered {
 					continue
 				}
 
-				n.Peers[res.NodeRelativeID].Answerd = true
+				n.Peers[res.NodeRelativeID].Answered = true
+
 				if !res.VoteGranted {
 					continue
 				}
