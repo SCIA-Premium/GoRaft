@@ -3,4 +3,6 @@ raft
 raft_repl
 raft_clsf
 
+output/
+
 .vscode

@@ -5,7 +5,6 @@ import (
 	"math/rand"
 	"net/http"
 	"net/rpc"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -125,23 +124,6 @@ func get_sleep_duration(n *Node) time.Duration {
 	return time.Duration((rand.Intn(200)+n.SpeedState.value)*10) * time.Millisecond
 }
 
-func (n *Node) executeCommandFollower(command string) {
-	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
-	splited := strings.Split(command, " ")
-	switch splited[0] {
-	case "LOAD":
-		file_uid, _ := uuid.Parse(splited[2])
-		n.RegisteredFiles[file_uid] = splited[1]
-	case "DELETE":
-		file_uid, err := uuid.Parse(splited[1])
-		if err != nil {
-			return
-		}
-		delete(n.RegisteredFiles, file_uid)
-	case "APPEND":
-	}
-}
-
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	select {
@@ -155,7 +137,7 @@ func (n *Node) stepFollower() {
 		if req.LeaderCommit >= n.CommitIndex && req.LeaderCommit != -1 {
 			for i := n.LastApplied + 1; i <= req.LeaderCommit; i++ {
 				n.Log[i].Committed = true
-				n.executeCommandFollower(n.Log[i].Command)
+				n.ExecuteCommand(n.Log[i].Command)
 			}
 			n.LastApplied = req.LeaderCommit
 			n.CommitIndex = req.LeaderCommit
@@ -216,7 +198,7 @@ func (n *Node) stepLeader() {
 		if res.Success {
 			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
 
-			for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.RequestID; i++ {
+			for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
 				n.Log[i].Count += 1
 				if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
 					log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
@@ -226,8 +208,8 @@ func (n *Node) stepLeader() {
 				}
 			}
 
-			n.MatchIndex[res.NodeRelativeID] = res.RequestID - 1
-			n.NextIndex[res.NodeRelativeID] = res.RequestID
+			n.MatchIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex - 1
+			n.NextIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex
 			return
 		}
 
@@ -275,9 +257,9 @@ func (n *Node) Start() {
 func (n *Node) startRpc(port string) {
 	rpc.Register(n)
 	rpc.HandleHTTP()
-	log.Printf("[T%d][%s] : now listening on %s\n", n.CurrentTerm, n.State, port)
+	log.Printf("[T%d][%s] : now listening on port %s\n", n.CurrentTerm, n.State, port)
 	go func() {
-		err := http.ListenAndServe(port, nil)
+		err := http.ListenAndServe(":"+port, nil)
 		if err != nil {
 			log.Fatalf("[T%d][%s] : Listen error: %s", n.PeerID, n.State, err)
 		}

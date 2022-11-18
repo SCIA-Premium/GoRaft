@@ -31,10 +31,10 @@ type AppendEntriesRequest struct {
 
 // AppendEntriesResponse is the response sent after appending entries to the log
 type AppendEntriesResponse struct {
-	RequestID      int
-	NodeRelativeID int
-	Term           int
-	Success        bool
+	NodeRelativeNextIndex int
+	NodeRelativeID        int
+	Term                  int
+	Success               bool
 }
 
 // VoteRequest is the request sent to vote for a candidate
@@ -122,7 +122,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		n.CurrentTerm = req.Term
 		n.VotedFor = uuid.Nil
 
-		if req.LeaderCommit == 0 {
+		if req.LeaderCommit == -1 {
 			n.Log = make([]LogEntry, 0)
 		} else {
 			n.Log = n.Log[:req.LeaderCommit]
@@ -138,11 +138,11 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	res.Success = true
 
 	if len(req.Entries) == 0 {
-		res.RequestID = len(n.Log)
+		res.NodeRelativeNextIndex = len(n.Log)
 	} else {
 		log.Printf("[T%d][%s]: len(req.Entries) %d and len(n.log) %d\n", n.CurrentTerm, n.State, len(req.Entries), len(n.Log))
 		n.Log = append(n.Log, req.Entries...)
-		res.RequestID = len(n.Log)
+		res.NodeRelativeNextIndex = len(n.Log)
 
 		n.CommitIndex = len(n.Log) - 1
 		if req.LeaderCommit > n.CommitIndex {

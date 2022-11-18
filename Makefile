@@ -10,6 +10,6 @@ raft_clsf:
 	cd src_clsf; go build -o raft_clsf; mv raft_clsf ..
 
 clean:
-	$(RM) raft raft_repl raft_clsf
+	$(RM) -r raft raft_repl raft_clsf output
 
 .PHONY: raft raft_repl raft_clsf
