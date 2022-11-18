@@ -161,6 +161,10 @@ func (n *Node) stepCandidate() {
 	n.VotedFor = n.PeerUID
 	n.VotedCount = 1
 
+	for _, peer := range n.Peers {
+		peer.Answerd = false
+	}
+
 	go func() {
 		for {
 			select {
