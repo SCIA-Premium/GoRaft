@@ -111,6 +111,8 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	}
 
 	if req.PrevLogIndex != -1 && len(n.Log) > req.PrevLogIndex && n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
+		log.Printf("[T%d][%s]: Erasing bad logs\n", n.CurrentTerm, n.State)
+		n.Log = n.Log[:req.PrevLogIndex]
 		res.Term = n.CurrentTerm
 		res.Success = false
 		return nil
@@ -140,14 +142,15 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	if len(req.Entries) == 0 {
 		res.NodeRelativeNextIndex = len(n.Log)
 	} else {
+		log.Printf("[T%d][%s]: Receiving %d entries\n", n.CurrentTerm, n.State, len(req.Entries))
 		if req.PrevLogIndex == -1 {
 			n.Log = req.Entries
 		} else {
-			if len(n.Log) > req.PrevLogIndex+1 {
-				log.Printf("[T%d][%s]: Erasing bad logs\n", n.CurrentTerm, n.State)
-				n.Log = n.Log[:req.PrevLogIndex+1]
+			to_not_append := len(n.Log) - 1 - req.PrevLogIndex
+			log.Printf("[T%d][%s]: Appending %d entries\n", n.CurrentTerm, n.State, len(req.Entries)-to_not_append)
+			if to_not_append != len(req.Entries) {
+				n.Log = append(n.Log, req.Entries[to_not_append:]...)
 			}
-			n.Log = append(n.Log, req.Entries...)
 		}
 
 		res.NodeRelativeNextIndex = len(n.Log)

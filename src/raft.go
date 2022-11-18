@@ -201,7 +201,7 @@ func (n *Node) stepLeader() {
 			for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
 				n.Log[i].Count += 1
 				if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
-					log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
+					log.Printf("[T%d][%s]: commiting log with index %d\n", n.CurrentTerm, n.State, i)
 					n.Log[i].Committed = true
 					n.CommitIndex = i
 					n.LastApplied = i
