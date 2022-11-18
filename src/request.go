@@ -31,10 +31,10 @@ type AppendEntriesRequest struct {
 
 // AppendEntriesResponse is the response sent after appending entries to the log
 type AppendEntriesResponse struct {
-	RequestID      int
-	NodeRelativeID int
-	Term           int
-	Success        bool
+	NodeRelativeNextIndex int
+	NodeRelativeID        int
+	Term                  int
+	Success               bool
 }
 
 // VoteRequest is the request sent to vote for a candidate
@@ -122,7 +122,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		n.CurrentTerm = req.Term
 		n.VotedFor = uuid.Nil
 
-		if req.LeaderCommit == 0 {
+		if req.LeaderCommit == -1 {
 			n.Log = make([]LogEntry, 0)
 		} else {
 			n.Log = n.Log[:req.LeaderCommit]
@@ -134,21 +134,24 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	n.LeaderAddress = req.LeaderAddress
 	n.State = Follower
 
-	n.Channels.AppendEntriesRequest <- req
+	res.Term = n.CurrentTerm
+	res.Success = true
+
 	if len(req.Entries) == 0 {
-		// Heartbeat
-		res.RequestID = 0
-		res.Term = n.CurrentTerm
-		res.Success = true
-		return nil
+		res.NodeRelativeNextIndex = len(n.Log)
+	} else {
+		log.Printf("[T%d][%s]: len(req.Entries) %d and len(n.log) %d\n", n.CurrentTerm, n.State, len(req.Entries), len(n.Log))
+		n.Log = append(n.Log, req.Entries...)
+		res.NodeRelativeNextIndex = len(n.Log)
+
+		n.CommitIndex = len(n.Log) - 1
+		if req.LeaderCommit > n.CommitIndex {
+			n.CommitIndex = req.LeaderCommit
+		}
 	}
 
-	n.Log = append(n.Log, req.Entries...)
-	n.CommitIndex = len(n.Log)
+	n.Channels.AppendEntriesRequest <- req
 
-	res.RequestID = len(n.Log)
-	res.Success = true
-	res.Term = n.CurrentTerm
 	return nil
 }
 
@@ -170,22 +173,26 @@ func (n *Node) broadcastAppendEntries() {
 				LeaderCommit:  n.CommitIndex,
 			}
 
-			req.PrevLogIndex = n.NextIndex[i] - 1
-			if len(n.Log) >= n.NextIndex[i] {
-				req.PrevLogTerm = n.Log[req.PrevLogIndex].Term
-				req.Entries = n.Log[req.PrevLogIndex:]
+			if len(n.Log) == 0 {
+				req.PrevLogIndex = 0
+				req.PrevLogTerm = 0
 			} else {
-				if len(n.Log) != 0 {
-					req.PrevLogTerm = n.Log[len(n.Log)-1].Term
+				if n.NextIndex[i] == 0 {
+					req.PrevLogIndex = 0
+					req.PrevLogTerm = 0
+					req.Entries = n.Log
 				} else {
-					req.PrevLogTerm = n.CurrentTerm
+					req.PrevLogIndex = n.NextIndex[i] - 1
+					req.PrevLogTerm = n.Log[req.PrevLogIndex].Term
+					if n.NextIndex[i] < len(n.Log) {
+						req.Entries = n.Log[n.NextIndex[i]:]
+					}
 				}
 			}
 
 			var res AppendEntriesResponse
 			res.NodeRelativeID = i
 			err = client.Call("Node.AppendEntries", req, &res)
-
 			if err != nil {
 				if err.Error() != "Node is not alive" {
 					log.Println(err)

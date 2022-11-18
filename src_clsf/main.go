@@ -26,7 +26,7 @@ func list(client *rpc.Client) {
 	}
 
 	if res == "" {
-		res = "(No files)"
+		res = "(No files)\n"
 	}
 
 	fmt.Printf("Available files uuid:\n%s", res)
@@ -45,8 +45,8 @@ func load(client *rpc.Client, filename string) {
 	fmt.Printf("File %s loaded with uuid %s\n", filename, res)
 }
 
-func delete(client *rpc.Client, filename string) {
-	args := filename
+func delete(client *rpc.Client, s_uuid string) {
+	args := s_uuid
 	var res string
 	err := client.Call("Node.Delete", args, &res)
 	if err != nil {
@@ -55,8 +55,8 @@ func delete(client *rpc.Client, filename string) {
 	}
 }
 
-func append(client *rpc.Client, filename string, content string) {
-	args := []string{filename, content}
+func append(client *rpc.Client, s_uuid string, content string) {
+	args := s_uuid + " " + content
 	var res string
 	err := client.Call("Node.Append", args, &res)
 	if err != nil {
