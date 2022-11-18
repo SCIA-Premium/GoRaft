@@ -122,7 +122,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		n.CurrentTerm = req.Term
 		n.VotedFor = uuid.Nil
 
-		if req.LeaderCommit == 0 {
+		if req.LeaderCommit == -1 {
 			n.Log = make([]LogEntry, 0)
 		} else {
 			n.Log = n.Log[:req.LeaderCommit]
