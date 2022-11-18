@@ -53,6 +53,10 @@ type VoteResponse struct {
 
 // RequestVotes is the RPC method to request votes
 func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
+	if !n.Alive {
+		return errors.New("Node is not alive")
+	}
+
 	if req.Term < n.CurrentTerm {
 		res.Term = n.CurrentTerm
 		res.VoteGranted = false
