@@ -198,7 +198,7 @@ func (n *Node) stepLeader() {
 		if res.Success {
 			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
 
-			for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.RequestID; i++ {
+			for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
 				n.Log[i].Count += 1
 				if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
 					log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
@@ -208,8 +208,8 @@ func (n *Node) stepLeader() {
 				}
 			}
 
-			n.MatchIndex[res.NodeRelativeID] = res.RequestID - 1
-			n.NextIndex[res.NodeRelativeID] = res.RequestID
+			n.MatchIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex - 1
+			n.NextIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex
 			return
 		}
 
