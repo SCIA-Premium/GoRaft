@@ -47,8 +47,9 @@ type VoteRequest struct {
 
 // VoteResponse is the response sent after voting for a candidate
 type VoteResponse struct {
-	Term        int
-	VoteGranted bool
+	NodeRelativeID int
+	Term           int
+	VoteGranted    bool
 }
 
 // RequestVotes is the RPC method to request votes
@@ -75,10 +76,13 @@ func (n *Node) broadcastRequestVotes() {
 		Term:        n.CurrentTerm,
 		CandidateID: n.PeerUID,
 	}
-	log.Printf("[T%d][%s]: Starting Leader Election\n", n.CurrentTerm, n.State)
-	for _, peer := range n.Peers {
+	for i, peer := range n.Peers {
+		if n.Peers[i].Answered {
+			continue
+		}
+
 		log.Printf("[T%d][%s]: Requesting vote from %s\n", n.CurrentTerm, n.State, peer.Address)
-		go func(peer *Peer) {
+		go func(i int, peer *Peer) {
 			client, err := rpc.DialHTTP("tcp", peer.Address)
 			if err != nil {
 				log.Println(err)
@@ -86,6 +90,7 @@ func (n *Node) broadcastRequestVotes() {
 			}
 
 			var res VoteResponse
+			res.NodeRelativeID = i
 			err = client.Call("Node.RequestVotes", req, &res)
 			if err != nil {
 				if err.Error() != "Node is not alive" {
@@ -94,7 +99,7 @@ func (n *Node) broadcastRequestVotes() {
 				return
 			}
 			n.Channels.VoteResponse <- res
-		}(peer)
+		}(i, peer)
 	}
 }
 
@@ -142,6 +147,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	} else {
 		log.Printf("[T%d][%s]: len(req.Entries) %d and len(n.log) %d\n", n.CurrentTerm, n.State, len(req.Entries), len(n.Log))
 		n.Log = append(n.Log, req.Entries...)
+		// n.Log = append(n.Log, req.Entries[(req.PrevLogTerm-len(n.Log)):]...)
 		res.NodeRelativeNextIndex = len(n.Log)
 
 		n.CommitIndex = len(n.Log) - 1
