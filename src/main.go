@@ -2,9 +2,9 @@ package main
 
 import (
 	"flag"
-	"strings"
 	"os"
 	"strconv"
+	"strings"
 )
 
 func main() {
@@ -14,6 +14,7 @@ func main() {
 	port := flag.String("port", "10000", "Cluster port")
 	flag.Parse()
 
+	// Create the peers list
 	peers_list := strings.Split(*peers_addrs, ",")
 	peers := make([]*Peer, len(peers_list))
 	for i, v := range peers_list {
@@ -25,7 +26,10 @@ func main() {
 
 	// Create output directory
 	os.Mkdir("output", 0777)
-	os.Mkdir("output/" + "node_" + strconv.Itoa(*peer_ID), 0777)
+	os.Mkdir("output/"+"node_"+strconv.Itoa(*peer_ID), 0777)
+	// Create the log file
+	log_file, _ := os.Create("output/" + "node_" + strconv.Itoa(*peer_ID) + "/log")
+	log_file.Close()
 
 	// Register the node to RPC
 	node.startRpc(*port)

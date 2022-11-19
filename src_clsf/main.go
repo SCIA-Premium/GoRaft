@@ -42,7 +42,7 @@ func load(client *rpc.Client, filename string) {
 		return
 	}
 
-	fmt.Printf("File %s loaded with uuid %s\n", filename, res)
+	fmt.Printf("File '%s' loaded with uuid '%s'\n", filename, res)
 }
 
 func delete(client *rpc.Client, s_uuid string) {
@@ -54,7 +54,7 @@ func delete(client *rpc.Client, s_uuid string) {
 		return
 	}
 
-	fmt.Printf("File %s with uuid %s deleted\n", res, s_uuid)
+	fmt.Printf("File '%s' with uuid '%s' deleted\n", res, s_uuid)
 }
 
 func append(client *rpc.Client, s_uuid string, content string) {
@@ -66,7 +66,7 @@ func append(client *rpc.Client, s_uuid string, content string) {
 		return
 	}
 
-	fmt.Printf("Content '%s' added to file %s with uuid %s\n", content, res, s_uuid)
+	fmt.Printf("Content '%s' added to file '%s' with uuid '%s'\n", content, res, s_uuid)
 }
 
 func main() {
