@@ -65,7 +65,8 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 		return nil
 	}
 
-	if (n.VotedFor == uuid.Nil || n.VotedFor == req.CandidateID) && req.Term >= n.CurrentTerm {
+	if (n.VotedFor == uuid.Nil || n.VotedFor == req.CandidateID) &&
+		(len(n.Log) == 0 || req.LastLogTerm > n.Log[len(n.Log)-1].Term || (req.LastLogTerm == n.Log[len(n.Log)-1].Term && req.LastLogIndex >= len(n.Log)-1)) {
 		n.CurrentTerm = req.Term
 		n.VotedFor = req.CandidateID
 		res.VoteGranted = true
@@ -77,9 +78,16 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 // broadcastVoteRequest sends a vote request to all peers
 func (n *Node) broadcastRequestVotes() {
 	req := VoteRequest{
-		Term:        n.CurrentTerm,
-		CandidateID: n.PeerUID,
+		Term:         n.CurrentTerm,
+		CandidateID:  n.PeerUID,
+		LastLogIndex: len(n.Log) - 1,
+		LastLogTerm:  -1,
 	}
+
+	if len(n.Log) > 0 {
+		req.LastLogTerm = n.Log[req.LastLogIndex].Term
+	}
+
 	for i, peer := range n.Peers {
 		if n.Peers[i].Answered {
 			continue
