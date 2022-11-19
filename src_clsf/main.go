@@ -53,6 +53,8 @@ func delete(client *rpc.Client, s_uuid string) {
 		log.Println(err)
 		return
 	}
+
+	fmt.Printf("File %s with uuid %s deleted\n", res, s_uuid)
 }
 
 func append(client *rpc.Client, s_uuid string, content string) {
@@ -63,6 +65,8 @@ func append(client *rpc.Client, s_uuid string, content string) {
 		log.Println(err)
 		return
 	}
+
+	fmt.Printf("Content '%s' added to file %s with uuid %s\n", content, res, s_uuid)
 }
 
 func main() {

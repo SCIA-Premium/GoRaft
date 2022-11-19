@@ -132,10 +132,7 @@ func (n *Node) stepFollower() {
 
 	select {
 	case req := <-n.Channels.AppendEntriesRequest:
-		log.Printf("[T%d][%s]: received heartbeat\n", n.CurrentTerm, n.State)
-		if len(req.Entries) != 0 {
-			log.Printf("[T%d][%s]: received %d AppendEntriesRequest\n", n.CurrentTerm, n.State, len(req.Entries))
-		}
+		log.Printf("[T%d][%s]: Received heartbeat\n", n.CurrentTerm, n.State)
 
 		if req.LeaderCommit >= n.CommitIndex && req.LeaderCommit != -1 {
 			for i := n.LastApplied + 1; i <= req.LeaderCommit; i++ {
@@ -147,7 +144,7 @@ func (n *Node) stepFollower() {
 		}
 	case <-time.After(get_sleep_duration(n)):
 		if n.Alive {
-			log.Printf("[T%d][%s]: timeout -> change State to Candidate\n", n.CurrentTerm, n.State)
+			log.Printf("[T%d][%s]: Timeout -> Change State to Candidate\n", n.CurrentTerm, n.State)
 			n.State = Candidate
 		}
 	}
@@ -244,12 +241,11 @@ func (n *Node) stepLeader() {
 				}
 
 				if res.Success {
-					log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
-
 					for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
+						log.Printf("[T%d][%s]: Received a heartbeat answer from %d with up-to-date log %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, i)
 						n.Log[i].Count += 1
 						if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
-							log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
+							log.Printf("[T%d][%s]: Commiting log %d\n", n.CurrentTerm, n.State, i)
 							n.Log[i].Committed = true
 							n.CommitIndex = i
 							n.LastApplied = i
@@ -261,10 +257,10 @@ func (n *Node) stepLeader() {
 					continue
 				}
 
-				log.Printf("[T%d][%s]: received a failed heartbeat from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+				log.Printf("[T%d][%s]: Received a failed heartbeat from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
 
 				if res.Term > n.CurrentTerm {
-					log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, res.Term)
+					log.Printf("[T%d][%s]: Term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, res.Term)
 					n.CurrentTerm = res.Term
 					n.State = Follower
 					n.VotedFor = uuid.Nil
@@ -325,11 +321,11 @@ func (n *Node) Start() {
 func (n *Node) startRpc(port string) {
 	rpc.Register(n)
 	rpc.HandleHTTP()
-	log.Printf("[T%d][%s] : now listening on port %s\n", n.CurrentTerm, n.State, port)
+	log.Printf("[T%d][%s]: Now listening on port %s\n", n.CurrentTerm, n.State, port)
 	go func() {
 		err := http.ListenAndServe(":"+port, nil)
 		if err != nil {
-			log.Fatalf("[T%d][%s] : Listen error: %s", n.PeerID, n.State, err)
+			log.Fatalf("[T%d][%s]: Listen error: %s", n.PeerID, n.State, err)
 		}
 	}()
 }

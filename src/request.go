@@ -136,7 +136,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	}
 
 	if req.Term > n.CurrentTerm {
-		log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, req.Term)
+		log.Printf("[T%d][%s]: Term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, req.Term)
 		n.State = Follower
 		n.CurrentTerm = req.Term
 		n.VotedFor = uuid.Nil
@@ -156,9 +156,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	res.Term = n.CurrentTerm
 	res.Success = true
 
-	if len(req.Entries) == 0 {
-		log.Printf("[T%d][%s]: No entries received\n", n.CurrentTerm, n.State)
-	} else {
+	if len(req.Entries) != 0 {
 		log.Printf("[T%d][%s]: Receiving %d entries\n", n.CurrentTerm, n.State, len(req.Entries))
 		if req.PrevLogIndex == -1 {
 			n.Log = req.Entries

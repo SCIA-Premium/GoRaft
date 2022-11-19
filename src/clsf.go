@@ -61,12 +61,11 @@ func (n *Node) List(args string, res *string) error {
 func (n *Node) load(filename string, s_uuid string) error {
 	file_uid, _ := uuid.Parse(s_uuid)
 
-	n.RegisteredFiles[file_uid] = filename
-
 	_, err := os.Create("output/node_" + strconv.Itoa(n.PeerID) + "/" + filename)
 	if err != nil {
 		return err
 	}
+	n.RegisteredFiles[file_uid] = filename
 
 	return nil
 }
@@ -87,7 +86,7 @@ func (n *Node) Load(filename string, res *string) error {
 		return err
 	}
 
-	err = n.ExecuteCommand(n.Log[save_len_log].Command)
+	_, err = n.ExecuteCommand(n.Log[save_len_log].Command)
 	if err != nil {
 		return err
 	}
@@ -97,21 +96,23 @@ func (n *Node) Load(filename string, res *string) error {
 	return err
 }
 
-func (n *Node) delete(s_uuid string) error {
+func (n *Node) delete(s_uuid string) (string, error) {
 	file_uid, err := uuid.Parse(s_uuid)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if _, ok := n.RegisteredFiles[file_uid]; !ok {
-		return errors.New("File not found")
+		return "", errors.New("File not found")
 	}
+
+	filename := n.RegisteredFiles[file_uid]
 
 	// Remove file
 	err = os.Remove("output/node_" + strconv.Itoa(n.PeerID) + "/" + n.RegisteredFiles[file_uid])
 	delete(n.RegisteredFiles, file_uid)
 
-	return err
+	return filename, err
 }
 
 func (n *Node) Delete(args string, res *string) error {
@@ -128,30 +129,30 @@ func (n *Node) Delete(args string, res *string) error {
 		return err
 	}
 
-	err = n.ExecuteCommand(n.Log[save_len_log].Command)
+	*res, err = n.ExecuteCommand(n.Log[save_len_log].Command)
 
 	return err
 }
 
-func (n *Node) append(s_uuid string, content string) error {
+func (n *Node) append(s_uuid string, content string) (string, error) {
 	file_uid, err := uuid.Parse(s_uuid)
 	if err != nil {
-		return err
+		return "", err
 	}
 
 	if _, ok := n.RegisteredFiles[file_uid]; !ok {
-		return errors.New("File not found")
+		return "", errors.New("File not found")
 	}
 
 	// Append to file
 	f, err := os.OpenFile("output/node_"+strconv.Itoa(n.PeerID)+"/"+n.RegisteredFiles[file_uid], os.O_APPEND|os.O_WRONLY, 0600)
 	if err != nil {
-		return err
+		return "", err
 	}
 	f.Write([]byte(content + "\n"))
 	f.Close()
 
-	return err
+	return n.RegisteredFiles[file_uid], err
 }
 
 func (n *Node) Append(args string, res *string) error {
@@ -168,24 +169,24 @@ func (n *Node) Append(args string, res *string) error {
 		return err
 	}
 
-	err = n.ExecuteCommand(n.Log[save_len_log].Command)
+	*res, err = n.ExecuteCommand(n.Log[save_len_log].Command)
 
 	return err
 }
 
-func (n *Node) ExecuteCommand(command string) error {
-	log.Printf("[T%d][%s]: executing command: %s\n", n.CurrentTerm, n.State, command)
+func (n *Node) ExecuteCommand(command string) (string, error) {
+	log.Printf("[T%d][%s]: Executing command: %s\n", n.CurrentTerm, n.State, command)
 
 	splited := strings.Split(command, " ")
 
 	switch splited[0] {
 	case "LOAD":
-		return n.load(splited[1], splited[2])
+		return "", n.load(splited[1], splited[2])
 	case "DELETE":
 		return n.delete(splited[1])
 	case "APPEND":
 		return n.append(splited[1], command[len(splited[0])+len(splited[1])+2:])
 	}
 
-	return nil
+	return "", nil
 }

@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"net/rpc"
 	"os"
@@ -22,6 +23,8 @@ func speed(client *rpc.Client, new_speed_string string) {
 		log.Println(err)
 		return
 	}
+
+	fmt.Printf("%s", res)
 }
 
 func crash(client *rpc.Client) {
@@ -32,6 +35,8 @@ func crash(client *rpc.Client) {
 		log.Println(err)
 		return
 	}
+
+	fmt.Printf("%s", res)
 }
 
 func recovery(client *rpc.Client) {
@@ -42,6 +47,8 @@ func recovery(client *rpc.Client) {
 		log.Println(err)
 		return
 	}
+
+	fmt.Printf("%s", res)
 }
 
 func main() {
@@ -61,5 +68,7 @@ func main() {
 		crash(client)
 	case "RECOVERY":
 		recovery(client)
+	default:
+		fmt.Printf("Unknown command: %s", args[0])
 	}
 }
