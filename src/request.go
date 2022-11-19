@@ -61,13 +61,12 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 	res.VoteGranted = false
 	res.Term = n.CurrentTerm
 
-	if req.Term < n.CurrentTerm {
+	if req.Term < n.CurrentTerm || n.State == Leader && req.Term == n.CurrentTerm {
 		return nil
 	}
 
 	if (n.VotedFor == uuid.Nil || n.VotedFor == req.CandidateID) &&
 		(len(n.Log) == 0 || req.LastLogTerm > n.Log[len(n.Log)-1].Term || (req.LastLogTerm == n.Log[len(n.Log)-1].Term && req.LastLogIndex >= len(n.Log)-1)) {
-		n.CurrentTerm = req.Term
 		n.VotedFor = req.CandidateID
 		res.VoteGranted = true
 	}
