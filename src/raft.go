@@ -128,12 +128,13 @@ func get_sleep_duration(n *Node) time.Duration {
 
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
+	log.Printf("[T%d][%s]: Waiting hearbeat\n", n.CurrentTerm, n.State)
+
 	select {
 	case req := <-n.Channels.AppendEntriesRequest:
-		if len(req.Entries) == 0 {
-			log.Printf("[T%d][%s]: received heartbeat\n", n.CurrentTerm, n.State)
-		} else {
-			log.Printf("[T%d][%s]: received AppendEntriesRequest : %d\n", n.CurrentTerm, n.State, len(req.Entries))
+		log.Printf("[T%d][%s]: received heartbeat\n", n.CurrentTerm, n.State)
+		if len(req.Entries) != 0 {
+			log.Printf("[T%d][%s]: received %d AppendEntriesRequest\n", n.CurrentTerm, n.State, len(req.Entries))
 		}
 
 		if req.LeaderCommit >= n.CommitIndex && req.LeaderCommit != -1 {
@@ -201,6 +202,7 @@ func (n *Node) stepCandidate() {
 
 				n.LeaderUID = n.PeerUID
 				n.LeaderAddress = n.PeerAddress
+				n.VotedFor = uuid.Nil
 
 				for i := 0; i < len(n.Peers); i++ {
 					n.NextIndex[i] = n.LastApplied + 1
@@ -266,14 +268,13 @@ func (n *Node) stepLeader() {
 					n.CurrentTerm = res.Term
 					n.State = Follower
 					n.VotedFor = uuid.Nil
-					continue
+					return
 				}
 
 				n.NextIndex[res.NodeRelativeID] -= 1
 				if n.NextIndex[res.NodeRelativeID] < 0 {
 					n.NextIndex[res.NodeRelativeID] = 0
 				}
-				continue
 			default:
 				if !n.Alive {
 					return
@@ -284,10 +285,19 @@ func (n *Node) stepLeader() {
 	}(n)
 
 	// Leader timer for next heartbeat
-	time.Sleep(1000 * time.Millisecond)
-	var stopResponse AppendEntriesResponse
-	stopResponse.Term = -2
-	n.Channels.AppendEntriesResponse <- stopResponse
+	// 20 * 50 * timeMillisecond = 1 second
+	for i := 0; i < 20; i++ {
+		time.Sleep(50 * time.Millisecond)
+		if n.Alive && n.State != Leader {
+			break
+		}
+	}
+
+	if n.Alive && n.State == Leader {
+		var stopResponse AppendEntriesResponse
+		stopResponse.Term = -2
+		n.Channels.AppendEntriesResponse <- stopResponse
+	}
 }
 
 func (n *Node) Step() {
@@ -301,6 +311,8 @@ func (n *Node) Step() {
 			case Leader:
 				n.stepLeader()
 			}
+		} else {
+			time.Sleep(50 * time.Millisecond)
 		}
 	}
 }

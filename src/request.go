@@ -58,16 +58,16 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 		return errors.New("Node is not alive")
 	}
 
+	res.VoteGranted = false
+	res.Term = n.CurrentTerm
+
 	if req.Term < n.CurrentTerm {
-		res.Term = n.CurrentTerm
-		res.VoteGranted = false
 		return nil
 	}
 
 	if (n.VotedFor == uuid.Nil || n.VotedFor == req.CandidateID) && req.Term >= n.CurrentTerm {
 		n.CurrentTerm = req.Term
 		n.VotedFor = req.CandidateID
-		res.Term = req.Term
 		res.VoteGranted = true
 	}
 
@@ -149,7 +149,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 	res.Success = true
 
 	if len(req.Entries) == 0 {
-		res.NodeRelativeNextIndex = len(n.Log)
+		log.Printf("[T%d][%s]: No entries received\n", n.CurrentTerm, n.State)
 	} else {
 		log.Printf("[T%d][%s]: Receiving %d entries\n", n.CurrentTerm, n.State, len(req.Entries))
 		if req.PrevLogIndex == -1 {
@@ -161,14 +161,14 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 				n.Log = append(n.Log, req.Entries[to_not_append:]...)
 			}
 		}
-    
-    res.NodeRelativeNextIndex = len(n.Log)
 
 		n.CommitIndex = len(n.Log) - 1
 		if req.LeaderCommit > n.CommitIndex {
 			n.CommitIndex = req.LeaderCommit
 		}
 	}
+
+	res.NodeRelativeNextIndex = len(n.Log)
 
 	n.Channels.AppendEntriesRequest <- req
 
