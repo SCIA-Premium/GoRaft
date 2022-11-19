@@ -30,6 +30,7 @@ type SpeedState struct {
 type Peer struct {
 	Connected bool
 	Address   string
+	Answered  bool
 }
 
 // NewPeer creates a new Peer
@@ -37,6 +38,7 @@ func NewPeer(address string) *Peer {
 	return &Peer{
 		Connected: false,
 		Address:   address,
+		Answered:  false,
 	}
 }
 
@@ -152,25 +154,48 @@ func (n *Node) stepFollower() {
 
 // StepCandidate is the state of a node that is running for leader
 func (n *Node) stepCandidate() {
+	log.Printf("[T%d][%s]: Starting Leader Election\n", n.CurrentTerm, n.State)
 	log.Printf("[T%d][%s]: I'm candidate !\n", n.CurrentTerm, n.State)
+
 	n.CurrentTerm++
 	n.VotedFor = n.PeerUID
 	n.VotedCount = 1
-	go n.broadcastRequestVotes()
 
-	for {
-		select {
-		case res := <-n.Channels.VoteResponse:
-			if res.Term > n.CurrentTerm {
-				n.CurrentTerm = res.Term
-				n.State = Follower
-				n.VotedFor = uuid.Nil
-				return
-			}
-			if res.VoteGranted {
+	for _, peer := range n.Peers {
+		peer.Answered = false
+	}
+
+	go func() {
+		for {
+			select {
+			case res := <-n.Channels.VoteResponse:
+				if res.Term == -2 {
+					return
+				}
+
+				if res.Term > n.CurrentTerm {
+					n.CurrentTerm = res.Term
+					n.State = Follower
+					n.VotedFor = uuid.Nil
+					return
+				}
+
+				if n.Peers[res.NodeRelativeID].Answered {
+					continue
+				}
+
+				n.Peers[res.NodeRelativeID].Answered = true
+
+				if !res.VoteGranted {
+					continue
+				}
+
 				n.VotedCount++
-			}
-			if n.VotedCount >= (len(n.Peers)+1)/2+1 {
+
+				if n.VotedCount < (len(n.Peers)+1)/2+1 {
+					continue
+				}
+
 				log.Printf("[T%d][%s]: I'm the new leader !\n", n.CurrentTerm, n.State)
 				n.State = Leader
 
@@ -184,54 +209,85 @@ func (n *Node) stepCandidate() {
 
 				return
 			}
-		case <-time.After(get_sleep_duration(n)):
-			log.Printf("[T%d][%s]: timeout -> change State to Follower\n", n.CurrentTerm, n.State)
-			n.State = Follower
 		}
+	}()
+
+	for i := 0; i < 10; i++ {
+		n.broadcastRequestVotes()
+		time.Sleep(100 * time.Millisecond)
+
+		if n.State != Candidate {
+			break
+		}
+	}
+
+	if n.State == Candidate {
+		var stopResponse = VoteResponse{
+			Term: -2,
+		}
+		n.Channels.VoteResponse <- stopResponse
 	}
 }
 
 // StepLeader is the state of a node that is the leader
 func (n *Node) stepLeader() {
-	select {
-	case res := <-n.Channels.AppendEntriesResponse:
-		if res.Success {
-			log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+	n.broadcastAppendEntries()
 
-			for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
-				n.Log[i].Count += 1
-				if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
-					log.Printf("[T%d][%s]: commiting log with index %d\n", n.CurrentTerm, n.State, i)
-					n.Log[i].Committed = true
-					n.CommitIndex = i
-					n.LastApplied = i
+	go func(n *Node) {
+		for {
+			select {
+			case res := <-n.Channels.AppendEntriesResponse:
+				if res.Term == -2 {
+					return
 				}
+
+				if res.Success {
+					log.Printf("[T%d][%s]: received a heartbeat answer from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+
+					for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
+						n.Log[i].Count += 1
+						if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
+							log.Printf("[T%d][%s]: commiting log with index %d with nextIndex %d\n", n.CurrentTerm, n.State, i)
+							n.Log[i].Committed = true
+							n.CommitIndex = i
+							n.LastApplied = i
+						}
+					}
+
+					n.MatchIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex - 1
+					n.NextIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex
+					continue
+				}
+
+				log.Printf("[T%d][%s]: received a failed heartbeat from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
+
+				if res.Term > n.CurrentTerm {
+					log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, res.Term)
+					n.CurrentTerm = res.Term
+					n.State = Follower
+					n.VotedFor = uuid.Nil
+					continue
+				}
+
+				n.NextIndex[res.NodeRelativeID] -= 1
+				if n.NextIndex[res.NodeRelativeID] < 0 {
+					n.NextIndex[res.NodeRelativeID] = 0
+				}
+				continue
+			default:
+				if !n.Alive {
+					return
+				}
+				time.Sleep(100 * time.Millisecond)
 			}
-
-			n.MatchIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex - 1
-			n.NextIndex[res.NodeRelativeID] = res.NodeRelativeNextIndex
-			return
 		}
+	}(n)
 
-		log.Printf("[T%d][%s]: received a failed heartbeat from %d\n", n.CurrentTerm, n.State, res.NodeRelativeID)
-
-		if res.Term > n.CurrentTerm {
-			log.Printf("[T%d][%s]: term has changed to term %d -> Change state to Follower\n", n.CurrentTerm, n.State, res.Term)
-			n.CurrentTerm = res.Term
-			n.State = Follower
-			n.VotedFor = uuid.Nil
-			return
-		}
-
-		n.NextIndex[res.NodeRelativeID] -= 1
-		if n.NextIndex[res.NodeRelativeID] < 0 {
-			n.NextIndex[res.NodeRelativeID] = 0
-		}
-		return
-	default:
-		n.broadcastAppendEntries()
-		time.Sleep(1000 * time.Millisecond)
-	}
+	// Leader timer for next heartbeat
+	time.Sleep(1000 * time.Millisecond)
+	var stopResponse AppendEntriesResponse
+	stopResponse.Term = -2
+	n.Channels.AppendEntriesResponse <- stopResponse
 }
 
 func (n *Node) Step() {
