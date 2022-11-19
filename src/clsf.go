@@ -185,6 +185,11 @@ func (n *Node) ExecuteCommand(command string) (string, error) {
 
 	splited := strings.Split(command, " ")
 
+	// Write log to file
+	f, _ := os.OpenFile("output/node_"+strconv.Itoa(n.PeerID)+"/log", os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+	f.Write([]byte(command + "\n"))
+	f.Close()
+
 	switch splited[0] {
 	case "LOAD":
 		return "", n.load(splited[1], splited[2])
