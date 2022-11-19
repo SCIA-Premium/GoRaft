@@ -61,6 +61,12 @@ func (n *Node) List(args string, res *string) error {
 func (n *Node) load(filename string, s_uuid string) error {
 	file_uid, _ := uuid.Parse(s_uuid)
 
+	for _, f := range n.RegisteredFiles {
+		if f == filename {
+			return fmt.Errorf("File '%s' already loaded", filename)
+		}
+	}
+
 	_, err := os.Create("output/node_" + strconv.Itoa(n.PeerID) + "/" + filename)
 	if err != nil {
 		return err
