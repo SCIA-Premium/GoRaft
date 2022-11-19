@@ -24,7 +24,7 @@ func (n *Node) Speed(new_speed_string string, res *string) error {
 	case "medium":
 		new_speed = SpeedState{"medium", 600}
 	case "low":
-		new_speed = SpeedState{"low", 1000}
+		new_speed = SpeedState{"low", 1200}
 	default:
 		return fmt.Errorf("unknow speed specification : %s", new_speed_string)
 	}

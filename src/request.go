@@ -4,6 +4,7 @@ import (
 	"errors"
 	"log"
 	"net/rpc"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -50,6 +51,10 @@ type VoteResponse struct {
 	NodeRelativeID int
 	Term           int
 	VoteGranted    bool
+}
+
+func (n *Node) waitComputeTime() {
+	time.Sleep(time.Duration(n.SpeedState.value) * time.Millisecond)
 }
 
 // RequestVotes is the RPC method to request votes
@@ -116,6 +121,8 @@ func (n *Node) broadcastRequestVotes() {
 
 // AppendEntries is the RPC method to append entries to the log
 func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesResponse) error {
+	n.waitComputeTime()
+
 	if !n.Alive {
 		return errors.New("Node is not alive")
 	}

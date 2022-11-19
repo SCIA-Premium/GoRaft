@@ -122,10 +122,6 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 	}
 }
 
-func get_sleep_duration(n *Node) time.Duration {
-	return time.Duration((rand.Intn(200)+n.SpeedState.value)*10) * time.Millisecond
-}
-
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
 	log.Printf("[T%d][%s]: Waiting hearbeat\n", n.CurrentTerm, n.State)
@@ -142,7 +138,7 @@ func (n *Node) stepFollower() {
 			n.LastApplied = req.LeaderCommit
 			n.CommitIndex = req.LeaderCommit
 		}
-	case <-time.After(get_sleep_duration(n)):
+	case <-time.After(time.Duration((rand.Intn(200)+600)*10) * time.Millisecond):
 		if n.Alive {
 			log.Printf("[T%d][%s]: Timeout -> Change State to Candidate\n", n.CurrentTerm, n.State)
 			n.State = Candidate
@@ -211,6 +207,8 @@ func (n *Node) stepCandidate() {
 		}
 	}()
 
+	// Election timeout
+	// 10 * 100 * time.Millisecond = 1 second
 	for i := 0; i < 10; i++ {
 		n.broadcastRequestVotes()
 		time.Sleep(100 * time.Millisecond)
