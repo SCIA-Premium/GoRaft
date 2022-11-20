@@ -124,7 +124,7 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 
 // StepFollower is the state of a node that is not the leader
 func (n *Node) stepFollower() {
-	log.Printf("[T%d][%s]: Waiting hearbeat\n", n.CurrentTerm, n.State)
+	log.Printf("[T%d][%s]: Waiting heartbeat\n", n.CurrentTerm, n.State)
 
 	select {
 	case req := <-n.Channels.AppendEntriesRequest:
@@ -243,7 +243,7 @@ func (n *Node) stepLeader() {
 						log.Printf("[T%d][%s]: Received a heartbeat answer from %d with up-to-date log %d\n", n.CurrentTerm, n.State, res.NodeRelativeID, i)
 						n.Log[i].Count += 1
 						if !n.Log[i].Committed && (n.Log[i].Count >= (len(n.Peers))/2+1) {
-							log.Printf("[T%d][%s]: Commiting log %d\n", n.CurrentTerm, n.State, i)
+							log.Printf("[T%d][%s]: Committing log %d\n", n.CurrentTerm, n.State, i)
 							n.Log[i].Committed = true
 							n.CommitIndex = i
 							n.LastApplied = i
