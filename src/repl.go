@@ -26,7 +26,7 @@ func (n *Node) Speed(new_speed_string string, res *string) error {
 	case "low":
 		new_speed = SpeedState{"low", 1200}
 	default:
-		return fmt.Errorf("unknow speed specification : %s", new_speed_string)
+		return fmt.Errorf("Unknown speed specification : %s", new_speed_string)
 	}
 
 	*res = fmt.Sprintf("Node%d change from %s speed to %s speed\n", n.PeerID, n.SpeedState.key, new_speed.key)

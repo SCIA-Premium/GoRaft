@@ -13,15 +13,20 @@ Victor Simonin \<victor.simonin@epita.fr\>
 
 ---
 
-The objective of this project is to set up a **client/server** system with a mechanism to controll or inject faults into the system.
+The objective of this project is to set up a **client/server** system with a
+mechanism to control or inject faults into the system.
 
-The general idea is as follows: customers offer values / commands to **servers**. These servers then want to agree on the order in which they will accept, then run these commands. Once agreed, it will write them to a **log file**, and execute them. 
+The general idea is as follows: customers offer values / commands to
+**servers**. These servers then want to agree on the order in which they will
+accept, then run these commands. Once agreed, it will write them to a **log
+file**, and execute them. 
 
 ---
 
 ## Build
 
-The provided `Makefile` build all the necessary executables with the following simple command : 
+The provided `Makefile` build all the necessary executables with the following
+simple command : 
 
 ```bash
 make
