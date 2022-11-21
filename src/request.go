@@ -135,7 +135,11 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 
 	if req.PrevLogIndex != -1 && len(n.Log) > req.PrevLogIndex && n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
 		log.Printf("[T%d][%s]: Erasing bad logs\n", n.CurrentTerm, n.State)
-		n.Log = n.Log[:req.PrevLogIndex]
+		if req.PrevLogIndex == -1 {
+			n.Log = []LogEntry{}
+		} else {
+			n.Log = n.Log[:req.PrevLogIndex]
+		}
 		res.Term = n.CurrentTerm
 		res.Success = false
 		return nil
@@ -149,7 +153,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 
 		if req.LeaderCommit == -1 {
 			n.Log = make([]LogEntry, 0)
-		} else {
+		} else if req.LeaderCommit < n.CommitIndex {
 			n.Log = n.Log[:req.LeaderCommit]
 		}
 	}
