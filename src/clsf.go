@@ -12,6 +12,7 @@ import (
 	"github.com/google/uuid"
 )
 
+// Handle error
 func (n *Node) handle_error() error {
 	if !n.Alive {
 		return errors.New("Node is not alive")
@@ -28,6 +29,7 @@ func (n *Node) handle_error() error {
 	return nil
 }
 
+// Wait for commit of the command at index
 func (n *Node) wait_commit(index int, err error) error {
 	for {
 		if len(n.Log) <= index {
@@ -44,6 +46,7 @@ func (n *Node) wait_commit(index int, err error) error {
 	return nil
 }
 
+// List all registered files
 func (n *Node) List(args string, res *string) error {
 	err := n.handle_error()
 	if err != nil {
@@ -58,6 +61,7 @@ func (n *Node) List(args string, res *string) error {
 	return nil
 }
 
+// Load create a file with uuid and register it
 func (n *Node) load(filename string, s_uuid string) error {
 	file_uid, _ := uuid.Parse(s_uuid)
 
@@ -76,6 +80,7 @@ func (n *Node) load(filename string, s_uuid string) error {
 	return nil
 }
 
+// Add LOAD command in Log and wait for commit before executing it
 func (n *Node) Load(filename string, res *string) error {
 	err := n.handle_error()
 	if err != nil {
@@ -102,6 +107,7 @@ func (n *Node) Load(filename string, res *string) error {
 	return err
 }
 
+// Delete the file with uuid if registered
 func (n *Node) delete(s_uuid string) (string, error) {
 	file_uid, err := uuid.Parse(s_uuid)
 	if err != nil {
@@ -121,6 +127,7 @@ func (n *Node) delete(s_uuid string) (string, error) {
 	return filename, err
 }
 
+// Add DELETE command in Log and wait for commit before executing it
 func (n *Node) Delete(args string, res *string) error {
 	err := n.handle_error()
 	if err != nil {
@@ -140,6 +147,7 @@ func (n *Node) Delete(args string, res *string) error {
 	return err
 }
 
+// Append content to file with uuid if registered
 func (n *Node) append(s_uuid string, content string) (string, error) {
 	file_uid, err := uuid.Parse(s_uuid)
 	if err != nil {
@@ -161,6 +169,7 @@ func (n *Node) append(s_uuid string, content string) (string, error) {
 	return n.RegisteredFiles[file_uid], err
 }
 
+// Add APPEND command in Log and wait for commit before executing it
 func (n *Node) Append(args string, res *string) error {
 	err := n.handle_error()
 	if err != nil {
@@ -180,6 +189,7 @@ func (n *Node) Append(args string, res *string) error {
 	return err
 }
 
+// ExecuteCommand executes a command for the node (Load, Delete, Append)
 func (n *Node) ExecuteCommand(command string) (string, error) {
 	log.Printf("[T%d][%s]: Executing command: %s\n", n.CurrentTerm, n.State, command)
 

@@ -53,6 +53,7 @@ type VoteResponse struct {
 	VoteGranted    bool
 }
 
+// waitComputeTime waits regarding the node speed state value
 func (n *Node) waitComputeTime() {
 	time.Sleep(time.Duration(n.SpeedState.value) * time.Millisecond)
 }
@@ -70,6 +71,7 @@ func (n *Node) RequestVotes(req VoteRequest, res *VoteResponse) error {
 		return nil
 	}
 
+	// If the candidate's log is at least as up-to-date as the node's log, grant the vote
 	if (n.VotedFor == uuid.Nil || n.VotedFor == req.CandidateID) &&
 		(len(n.Log) == 0 || req.LastLogTerm > n.Log[len(n.Log)-1].Term || (req.LastLogTerm == n.Log[len(n.Log)-1].Term && req.LastLogIndex >= len(n.Log)-1)) {
 		n.VotedFor = req.CandidateID

@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+// Get rpc client from address
 func get_client(address string) *rpc.Client {
 	client, err := rpc.DialHTTP("tcp", address)
 	if err != nil {
@@ -16,6 +17,7 @@ func get_client(address string) *rpc.Client {
 	return client
 }
 
+// Call Node.Speed function on client and print the result
 func speed(client *rpc.Client, new_speed_string string) {
 	var res string
 	err := client.Call("Node.Speed", new_speed_string, &res)
@@ -27,6 +29,7 @@ func speed(client *rpc.Client, new_speed_string string) {
 	fmt.Printf("%s", res)
 }
 
+// Call Node.Crash function on client and print the result
 func crash(client *rpc.Client) {
 	var args string
 	var res string
@@ -39,6 +42,7 @@ func crash(client *rpc.Client) {
 	fmt.Printf("%s", res)
 }
 
+// Call Node.Recovery function on client and print the result
 func recovery(client *rpc.Client) {
 	var args string
 	var res string

@@ -4,18 +4,22 @@ import (
 	"fmt"
 )
 
+
+// Crash set the node to dead
 func (n *Node) Crash(false_arg string, res *string) error {
 	n.Alive = false
 	*res = fmt.Sprintf("Node%d has been crashed\n", n.PeerID)
 	return nil
 }
 
+// Recovery set the node to alive
 func (n *Node) Recovery(false_arg string, res *string) error {
 	n.Alive = true
 	*res = fmt.Sprintf("Node%d has been recovered\n", n.PeerID)
 	return nil
 }
 
+// Speed change the speed state of the node (low, medium, high)
 func (n *Node) Speed(new_speed_string string, res *string) error {
 	var new_speed SpeedState
 	switch new_speed_string {
