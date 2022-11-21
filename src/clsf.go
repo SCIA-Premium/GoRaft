@@ -17,6 +17,10 @@ func (n *Node) handle_error() error {
 		return errors.New("Node is not alive")
 	}
 
+	if !n.Started {
+		return errors.New("Client entries are not currently accepted")
+	}
+
 	if n.LeaderUID == uuid.Nil {
 		return errors.New("No leader")
 	}

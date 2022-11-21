@@ -16,6 +16,18 @@ func get_client(address string) *rpc.Client {
 	return client
 }
 
+func start(client *rpc.Client) {
+	var args string
+	var res string
+	err := client.Call("Node.StartClsf", args, &res)
+	if err != nil {
+		log.Println(err)
+		return
+	}
+
+	fmt.Printf("%s", res)
+}
+
 func speed(client *rpc.Client, new_speed_string string) {
 	var res string
 	err := client.Call("Node.Speed", new_speed_string, &res)
@@ -62,6 +74,8 @@ func main() {
 	}
 
 	switch args[0] {
+	case "START":
+		start(client)
 	case "SPEED":
 		speed(client, args[1])
 	case "CRASH":

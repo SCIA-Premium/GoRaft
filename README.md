@@ -69,6 +69,7 @@ node3: ./raft --peer_id 3 --peer 127.0.0.1:12379,127.0.0.1:22379 --port 32379
 ### Testing
 
 ```bash
+./raft_repl address START
 ./raft_repl address CRASH
 ./raft_repl address SPEED (low|medium|high)
 ./raft_repl address RECOVERY

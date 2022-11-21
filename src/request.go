@@ -28,6 +28,8 @@ type AppendEntriesRequest struct {
 	PrevLogTerm   int
 	Entries       []LogEntry
 	LeaderCommit  int
+
+	Started bool
 }
 
 // AppendEntriesResponse is the response sent after appending entries to the log
@@ -36,6 +38,8 @@ type AppendEntriesResponse struct {
 	NodeRelativeID        int
 	Term                  int
 	Success               bool
+
+	Started bool
 }
 
 // VoteRequest is the request sent to vote for a candidate
@@ -127,6 +131,9 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		return errors.New("Node is not alive")
 	}
 
+	n.Started = req.Started || n.Started
+	res.Started = n.Started
+
 	if req.Term < n.CurrentTerm {
 		res.Term = n.CurrentTerm
 		res.Success = false
@@ -207,6 +214,8 @@ func (n *Node) broadcastAppendEntries() {
 				LeaderUID:     n.PeerUID,
 				LeaderAddress: n.PeerAddress,
 				LeaderCommit:  n.CommitIndex,
+
+				Started: n.Started,
 			}
 
 			if len(n.Log) == 0 {
