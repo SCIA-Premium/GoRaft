@@ -26,7 +26,7 @@ func (n *Node) Crash(false_arg string, res *string) error {
 
 func (n *Node) Recovery(false_arg string, res *string) error {
 	if n.Alive {
-		return fmt.Errorf("Node%d is already alived", n.PeerID)
+		return fmt.Errorf("Node%d is already alive", n.PeerID)
 	}
 
 	n.Alive = true
