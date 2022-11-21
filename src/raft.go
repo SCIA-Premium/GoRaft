@@ -131,6 +131,7 @@ func (n *Node) stepFollower() {
 		log.Printf("[T%d][%s]: Received heartbeat\n", n.CurrentTerm, n.State)
 
 		if req.LeaderCommit >= n.CommitIndex && req.LeaderCommit != -1 {
+			// Execute all commands in the log up to the leader's commit index
 			for i := n.LastApplied + 1; i <= req.LeaderCommit; i++ {
 				n.Log[i].Committed = true
 				n.ExecuteCommand(n.Log[i].Command)
@@ -167,6 +168,7 @@ func (n *Node) stepCandidate() {
 					return
 				}
 
+				// If the response is later than the current term, update the current term and change state to follower
 				if res.Term > n.CurrentTerm {
 					n.CurrentTerm = res.Term
 					n.State = Follower
@@ -186,6 +188,7 @@ func (n *Node) stepCandidate() {
 
 				n.VotedCount++
 
+				// If the node has received a majority of votes, it becomes the leader
 				if n.VotedCount < (len(n.Peers)+1)/2+1 {
 					continue
 				}
@@ -197,6 +200,7 @@ func (n *Node) stepCandidate() {
 				n.LeaderAddress = n.PeerAddress
 				n.VotedFor = uuid.Nil
 
+				// Update the next index and match index of all peers
 				for i := 0; i < len(n.Peers); i++ {
 					n.NextIndex[i] = n.LastApplied + 1
 					n.MatchIndex[i] = n.LastApplied
@@ -228,6 +232,8 @@ func (n *Node) stepCandidate() {
 
 // StepLeader is the state of a node that is the leader
 func (n *Node) stepLeader() {
+
+	// Send heartbeat to all peers
 	n.broadcastAppendEntries()
 
 	go func(n *Node) {
@@ -294,6 +300,7 @@ func (n *Node) stepLeader() {
 	}
 }
 
+// Step is the main function of the node
 func (n *Node) Step() {
 	for {
 		if n.Alive {
@@ -311,11 +318,13 @@ func (n *Node) Step() {
 	}
 }
 
+// Start starts the node and set random seed
 func (n *Node) Start() {
 	rand.Seed(time.Now().UnixNano())
 	go n.Step()
 }
 
+// startRpc starts the RPC server and register the node
 func (n *Node) startRpc(port string) {
 	rpc.Register(n)
 	rpc.HandleHTTP()
