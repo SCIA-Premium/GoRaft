@@ -59,3 +59,12 @@ CRASH *leader* (**after** commiting but **before** validating) \
 RECOVERY *leader* \
 
 => The load should be done
+
+---
+
+CRASH *follower* \
+CRASH *leader* \
+RECOVERY *leader* \
+LOAD toto \
+LOAD tata \
+RECOVERY *follower* \

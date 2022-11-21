@@ -28,6 +28,8 @@ type AppendEntriesRequest struct {
 	PrevLogTerm   int
 	Entries       []LogEntry
 	LeaderCommit  int
+
+	Started bool
 }
 
 // AppendEntriesResponse is the response sent after appending entries to the log
@@ -36,6 +38,8 @@ type AppendEntriesResponse struct {
 	NodeRelativeID        int
 	Term                  int
 	Success               bool
+
+	Started bool
 }
 
 // VoteRequest is the request sent to vote for a candidate
@@ -129,6 +133,9 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		return errors.New("Node is not alive")
 	}
 
+	n.Started = req.Started || n.Started
+	res.Started = n.Started
+
 	if req.Term < n.CurrentTerm {
 		res.Term = n.CurrentTerm
 		res.Success = false
@@ -137,7 +144,11 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 
 	if req.PrevLogIndex != -1 && len(n.Log) > req.PrevLogIndex && n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
 		log.Printf("[T%d][%s]: Erasing bad logs\n", n.CurrentTerm, n.State)
-		n.Log = n.Log[:req.PrevLogIndex]
+		if req.PrevLogIndex == -1 {
+			n.Log = []LogEntry{}
+		} else {
+			n.Log = n.Log[:req.PrevLogIndex]
+		}
 		res.Term = n.CurrentTerm
 		res.Success = false
 		return nil
@@ -151,7 +162,7 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 
 		if req.LeaderCommit == -1 {
 			n.Log = make([]LogEntry, 0)
-		} else {
+		} else if req.LeaderCommit < n.CommitIndex {
 			n.Log = n.Log[:req.LeaderCommit]
 		}
 	}
@@ -205,6 +216,8 @@ func (n *Node) broadcastAppendEntries() {
 				LeaderUID:     n.PeerUID,
 				LeaderAddress: n.PeerAddress,
 				LeaderCommit:  n.CommitIndex,
+
+				Started: n.Started,
 			}
 
 			if len(n.Log) == 0 {

@@ -4,9 +4,23 @@ import (
 	"fmt"
 )
 
+// StartClsf allows clients to do their requests
+func (n *Node) StartClsf(false_arg string, res *string) error {
+	if n.Started {
+		return fmt.Errorf("Client entries are already accepted")
+	}
+
+	n.Started = true
+	*res = fmt.Sprintf("Client entries are now accepted\n")
+	return nil
+}
 
 // Crash set the node to dead
 func (n *Node) Crash(false_arg string, res *string) error {
+	if !n.Alive {
+		return fmt.Errorf("Node%d has already crashed", n.PeerID)
+	}
+
 	n.Alive = false
 	*res = fmt.Sprintf("Node%d has been crashed\n", n.PeerID)
 	return nil
@@ -14,6 +28,10 @@ func (n *Node) Crash(false_arg string, res *string) error {
 
 // Recovery set the node to alive
 func (n *Node) Recovery(false_arg string, res *string) error {
+	if n.Alive {
+		return fmt.Errorf("Node%d is already alive", n.PeerID)
+	}
+
 	n.Alive = true
 	*res = fmt.Sprintf("Node%d has been recovered\n", n.PeerID)
 	return nil

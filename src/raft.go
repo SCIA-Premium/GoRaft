@@ -83,6 +83,7 @@ type Node struct {
 
 	SpeedState SpeedState
 	Alive      bool
+	Started    bool
 
 	Log []LogEntry
 
@@ -115,6 +116,7 @@ func NewNode(peerID int, peer_address string, peers []*Peer) *Node {
 
 		SpeedState: SpeedState{"medium", 600},
 		Alive:      true,
+		Started:    false,
 
 		Log: []LogEntry{},
 
@@ -243,6 +245,8 @@ func (n *Node) stepLeader() {
 				if res.Term == -2 {
 					return
 				}
+
+				n.Started = n.Started || res.Started
 
 				if res.Success {
 					for i := n.MatchIndex[res.NodeRelativeID] + 1; i < res.NodeRelativeNextIndex; i++ {
