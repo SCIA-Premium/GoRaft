@@ -7,6 +7,7 @@ import (
 	"os"
 )
 
+// Get rpc client from address
 func get_client(address string) *rpc.Client {
 	client, err := rpc.DialHTTP("tcp", address)
 	if err != nil {
@@ -16,6 +17,7 @@ func get_client(address string) *rpc.Client {
 	return client
 }
 
+// Call Node.List function on client and print the result
 func list(client *rpc.Client) {
 	var args string
 	var res string
@@ -32,6 +34,7 @@ func list(client *rpc.Client) {
 	fmt.Printf("Available files uuid:\n%s", res)
 }
 
+// Call Node.Load function on client
 func load(client *rpc.Client, filename string) {
 	args := filename
 	var res string
@@ -45,6 +48,7 @@ func load(client *rpc.Client, filename string) {
 	fmt.Printf("File '%s' loaded with uuid '%s'\n", filename, res)
 }
 
+// Call Node.Delete function on client
 func delete(client *rpc.Client, s_uuid string) {
 	args := s_uuid
 	var res string
@@ -57,6 +61,7 @@ func delete(client *rpc.Client, s_uuid string) {
 	fmt.Printf("File '%s' with uuid '%s' deleted\n", res, s_uuid)
 }
 
+// Call Node.Append function on client
 func append(client *rpc.Client, s_uuid string, content string) {
 	args := s_uuid + " " + content
 	var res string

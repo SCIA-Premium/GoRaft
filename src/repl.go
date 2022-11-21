@@ -4,6 +4,7 @@ import (
 	"fmt"
 )
 
+// StartClsf allows clients to do their requests
 func (n *Node) StartClsf(false_arg string, res *string) error {
 	if n.Started {
 		return fmt.Errorf("Client entries are already accepted")
@@ -14,6 +15,7 @@ func (n *Node) StartClsf(false_arg string, res *string) error {
 	return nil
 }
 
+// Crash set the node to dead
 func (n *Node) Crash(false_arg string, res *string) error {
 	if !n.Alive {
 		return fmt.Errorf("Node%d has already crashed", n.PeerID)
@@ -24,6 +26,7 @@ func (n *Node) Crash(false_arg string, res *string) error {
 	return nil
 }
 
+// Recovery set the node to alive
 func (n *Node) Recovery(false_arg string, res *string) error {
 	if n.Alive {
 		return fmt.Errorf("Node%d is already alive", n.PeerID)
@@ -34,6 +37,7 @@ func (n *Node) Recovery(false_arg string, res *string) error {
 	return nil
 }
 
+// Speed change the speed state of the node (low, medium, high)
 func (n *Node) Speed(new_speed_string string, res *string) error {
 	var new_speed SpeedState
 	switch new_speed_string {
