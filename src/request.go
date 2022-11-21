@@ -135,7 +135,6 @@ func (n *Node) AppendEntries(req AppendEntriesRequest, res *AppendEntriesRespons
 		return nil
 	}
 
-	// 
 	if req.PrevLogIndex != -1 && len(n.Log) > req.PrevLogIndex && n.Log[req.PrevLogIndex].Term != req.PrevLogTerm {
 		log.Printf("[T%d][%s]: Erasing bad logs\n", n.CurrentTerm, n.State)
 		n.Log = n.Log[:req.PrevLogIndex]
